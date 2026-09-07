@@ -119,22 +119,52 @@ export async function POST(req: NextRequest) {
       model = model || "gpt-4o-mini";
       const baseUrl = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
 
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      // OpenAI reasoning models (o1, o3-mini) and gpt-5.* do not support custom temperature (only default 1)
+      const isReasoningOrGpt5 = /^(o[0-9]|gpt-5)/i.test(model);
+
+      const requestBody: Record<string, unknown> = {
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+      };
+
+      if (!isReasoningOrGpt5) {
+        requestBody.temperature = 0.3;
+      }
+
+      let res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.3,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      // If API returns 400 because of temperature parameter, retry automatically without temperature
+      if (!res.ok) {
+        const errorText = await res.text();
+        if (errorText.includes("temperature") && requestBody.temperature !== undefined) {
+          delete requestBody.temperature;
+          res = await fetch(`${baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify(requestBody),
+          });
+        } else {
+          console.error("OpenAI API Error:", res.status, errorText);
+          return NextResponse.json<SummarizeResponse>(
+            { success: false, error: `OpenAI API 响应错误 (${res.status}): ${errorText.slice(0, 150)}` },
+            { status: 502 }
+          );
+        }
+      }
 
       if (!res.ok) {
         const errorText = await res.text();
