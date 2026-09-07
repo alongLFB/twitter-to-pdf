@@ -14,6 +14,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/s/:id",
+        destination: "/",
+      },
+      {
+        source: "/a/:id",
+        destination: "/",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -198,6 +198,26 @@ export default function Home() {
     showToast("已清空浏览器本地存储的转换历史记录");
   };
 
+  const deleteHistoryItem = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHistory((prev) => {
+      const updated = prev.filter((item) => item.id !== id);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("twitter_pdf_history", JSON.stringify(updated));
+      }
+      return updated;
+    });
+    showToast("已删除该条历史记录");
+  };
+
+  const getShareUrl = (tweet: ParsedTweet) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://x2pdf.alonglfb.com";
+    if (tweet.id && /^\d+$/.test(tweet.id)) {
+      return `${origin}/s/${tweet.id}`;
+    }
+    return `${origin}/?url=${encodeURIComponent(tweet.url)}`;
+  };
+
   const handleGenerateSummary = async (forceRefresh = false) => {
     if (!tweetData) return;
 
@@ -239,6 +259,8 @@ export default function Home() {
         showToast("✨ AI 智能速读摘要已生成！");
         // Real-time update summaries stat counter
         setStats((prev) => (prev ? { ...prev, summaries: prev.summaries + 1 } : null));
+        // Refresh server stats in background to keep in sync
+        axios.get("/api/stats").then((r) => r.data.success && setStats(r.data.data)).catch(() => {});
       } else {
         setSummaryError(res.data.error || "生成摘要失败，请检查服务器 AI 配置");
       }
@@ -259,8 +281,7 @@ export default function Home() {
   const handleCopySummary = () => {
     if (!summary || !tweetData) return;
 
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://x2pdf.alonglfb.com";
-    const shareUrl = `${origin}/?url=${encodeURI(tweetData.url)}`;
+    const shareUrl = getShareUrl(tweetData);
 
     let text = `📝 【AI 速读提炼】${tweetData.title || "Twitter 长文精读"}\n\n`;
     text += `💡 核心总结：\n${summary.oneSentence}\n\n`;
@@ -282,7 +303,6 @@ export default function Home() {
     }
 
     text += `📖 在线阅读与导出：${shareUrl}\n`;
-    text += `🔗 推特原文链接：${tweetData.url}\n`;
     text += `— 由 X to PDF 智能提炼导出`;
 
     try {
@@ -298,8 +318,7 @@ export default function Home() {
 
   const handleCopyShareUrl = () => {
     if (!tweetData) return;
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://x2pdf.alonglfb.com";
-    const shareUrl = `${origin}/?url=${encodeURI(tweetData.url)}`;
+    const shareUrl = getShareUrl(tweetData);
 
     try {
       navigator.clipboard.writeText(shareUrl).then(() => {
@@ -369,13 +388,14 @@ export default function Home() {
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
               ${summary.keyTakeaways
-                .map(
-                  (pt) => `
+                .map((pt) => {
+                  const hasEmojiOrBullet = /^[\p{Extended_Pictographic}\u2022\u25CF\u25CB\-\*]/u.test(pt.trim());
+                  return `
                 <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.6; color: ${textSecondary};">
-                  <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${accent}; margin-top: 7px; flex-shrink: 0;"></span>
+                  ${!hasEmojiOrBullet ? `<span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: ${accent}; margin-top: 8px; flex-shrink: 0;"></span>` : ""}
                   <span style="flex: 1;">${escapeHtml(pt)}</span>
-                </div>`
-                )
+                </div>`;
+                })
                 .join("")}
             </div>
           </div>
@@ -385,7 +405,7 @@ export default function Home() {
       let quoteHtml = "";
       if (summary.goldenQuote) {
         quoteHtml = `
-          <div style="margin-top: 16px; padding: 12px 16px; background: ${quoteBg}; border: 1px solid ${borderCol}; border-left: 4px solid ${quoteBorder}; border-radius: 10px;">
+          <div style="margin-top: 16px; padding: 12px 16px; background: ${quoteBg}; border: 1px solid ${borderCol}; border-left: 4px solid ${quoteBorder}; border-radius: 8px;">
             <div style="font-size: 11px; font-weight: 700; color: ${quoteBorder}; margin-bottom: 4px;">
               💬 精选金句
             </div>
@@ -403,7 +423,7 @@ export default function Home() {
             ${summary.tags
               .map(
                 (tag) =>
-                  `<span style="font-size: 11px; font-weight: 500; background: ${tagBg}; color: ${tagText}; padding: 2px 9px; border-radius: 9999px;">#${escapeHtml(tag)}</span>`
+                  `<span style="display: inline-block; font-size: 11px; font-weight: 500; line-height: 18px; padding: 2px 8px; background: ${tagBg}; color: ${tagText}; border-radius: 6px; vertical-align: middle;">#${escapeHtml(tag)}</span>`
               )
               .join("")}
           </div>
@@ -424,7 +444,7 @@ export default function Home() {
               <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: ${accent}; color: #ffffff; border-radius: 6px; font-size: 12px;">⚡</span>
               <span style="font-size: 15px; font-weight: 800; color: ${textPrimary};">AI 智能速读 · 核心提炼 (TL;DR)</span>
             </div>
-            <span style="font-size: 10.5px; font-weight: 600; background: ${tagBg}; color: ${tagText}; padding: 2px 8px; border-radius: 9999px;">
+            <span style="display: inline-block; font-size: 10.5px; font-weight: 600; line-height: 18px; padding: 2px 8px; background: ${tagBg}; color: ${tagText}; border-radius: 6px; vertical-align: middle;">
               ${modelBadge}
             </span>
           </div>
@@ -547,11 +567,16 @@ export default function Home() {
         saveToHistory(res.data.data);
         // Real-time update conversions stat counter
         setStats((prev) => (prev ? { ...prev, conversions: prev.conversions + 1 } : null));
+        // Refresh server stats in background to guarantee real-time sync with server
+        axios.get("/api/stats").then((r) => r.data.success && setStats(r.data.data)).catch(() => {});
 
-        // Sync browser address bar with ?url= so users can copy and share directly
+        // Sync browser address bar with clean /s/:id (or ?url=) without exposing Twitter URLs
         if (typeof window !== "undefined") {
-          const sharePath = `/?url=${encodeURI(res.data.data.url)}`;
-          window.history.pushState({ url: res.data.data.url }, "", sharePath);
+          const tweetId = res.data.data.id;
+          const sharePath = tweetId && /^\d+$/.test(tweetId)
+            ? `/s/${tweetId}`
+            : `/?url=${encodeURIComponent(res.data.data.url)}`;
+          window.history.pushState({ id: tweetId }, "", sharePath);
         }
 
         // Scroll to toolbar so user immediately sees the download action buttons and settings
@@ -604,9 +629,9 @@ export default function Home() {
     setSummaryError(null);
     setLoadingSummary(false);
 
-    // 3. Clear URL query parameter in address bar
+    // 3. Clear URL query parameter / path in address bar back to root /
     if (typeof window !== "undefined") {
-      window.history.pushState(null, "", window.location.pathname);
+      window.history.pushState(null, "", "/");
     }
 
     // 4. Ensure after React unmounts the article DOM that the viewport stays firmly anchored at top: 0
@@ -637,17 +662,38 @@ export default function Home() {
     }, 120);
   };
 
-  // Auto-parse on direct URL parameter link (?url=...) and handle browser Back/Forward
+  // Auto-parse on direct URL parameter link (/s/:id, ?s=..., ?url=...) and handle browser Back/Forward
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const parseFromUrl = () => {
+    const extractTargetFromLocation = (): string | null => {
+      // 1. Check path for /s/:id or /a/:id
+      const pathMatch = window.location.pathname.match(/^\/(?:s|a)\/(\d{1,25})/i);
+      if (pathMatch && pathMatch[1]) {
+        return pathMatch[1];
+      }
+
+      // 2. Check query params for ?s=... or ?id=...
       const searchParams = new URLSearchParams(window.location.search);
+      const sParam = searchParams.get("s") || searchParams.get("id");
+      if (sParam && sParam.trim()) {
+        return sParam.trim();
+      }
+
+      // 3. Fallback to legacy ?url=...
       const urlParam = searchParams.get("url");
-      if (urlParam) {
-        const decoded = decodeURIComponent(urlParam);
-        setUrl(decoded);
-        handleParse(decoded);
+      if (urlParam && urlParam.trim()) {
+        return decodeURIComponent(urlParam.trim());
+      }
+
+      return null;
+    };
+
+    const parseFromUrl = () => {
+      const target = extractTargetFromLocation();
+      if (target) {
+        setUrl(target);
+        handleParse(target);
       } else {
         setTweetData(null);
         setError("");
@@ -656,12 +702,10 @@ export default function Home() {
     };
 
     // Check on initial mount
-    const searchParams = new URLSearchParams(window.location.search);
-    const initialUrl = searchParams.get("url");
-    if (initialUrl) {
-      const decoded = decodeURIComponent(initialUrl);
-      setUrl(decoded);
-      handleParse(decoded);
+    const initialTarget = extractTargetFromLocation();
+    if (initialTarget) {
+      setUrl(initialTarget);
+      handleParse(initialTarget);
     }
 
     window.addEventListener("popstate", parseFromUrl);
@@ -1010,8 +1054,7 @@ export default function Home() {
   // 3. Export Markdown
   const handleExportMarkdown = () => {
     if (!tweetData) return;
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://x2pdf.alonglfb.com";
-    const shareUrl = `${origin}/?url=${encodeURI(tweetData.url)}`;
+    const shareUrl = getShareUrl(tweetData);
     const frontmatter = `---
 title: "${tweetData.title.replace(/"/g, '\\"')}"
 author: "${tweetData.author.name} (@${tweetData.author.screen_name})"
@@ -2349,13 +2392,22 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                   }}
                   className="p-3 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-indigo-500/40 cursor-pointer transition flex flex-col justify-between group"
                 >
-                  <div>
-                    <h4 className="font-medium text-slate-200 text-sm line-clamp-1 group-hover:text-indigo-300 transition">
-                      {item.title}
-                    </h4>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {item.authorName} (@{item.screenName})
-                    </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-slate-200 text-sm line-clamp-1 group-hover:text-indigo-300 transition">
+                        {item.title}
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-1 truncate">
+                        {item.authorName} (@{item.screenName})
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => deleteHistoryItem(item.id, e)}
+                      className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/15 transition cursor-pointer"
+                      title="删除此条历史记录"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-800/50 flex items-center justify-between text-[11px] text-slate-500">
                     <span>本地保存于 {item.convertedAt}</span>
