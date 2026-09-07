@@ -36,6 +36,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { ParsedTweet, ParseResponse, ArticleSummary, SummarizeResponse } from "@/types/tweet";
+import { SponsorModal } from "@/components/SponsorModal";
 
 const DEMO_LINKS = [
   {
@@ -88,6 +89,13 @@ export default function Home() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(false);
   const [includeSummaryInPdf, setIncludeSummaryInPdf] = useState(true);
+  const [summaryCooldown, setSummaryCooldown] = useState(0);
+
+  // Sponsor Modal state
+  const [sponsorOpen, setSponsorOpen] = useState(false);
+
+  // Real-time Persistent Site Stats
+  const [stats, setStats] = useState<{ visits: number; conversions: number; summaries: number } | null>(null);
 
   // History state initialized safely after mount to prevent SSR hydration mismatch
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -99,6 +107,35 @@ export default function Home() {
       const stored = localStorage.getItem("twitter_pdf_history");
       if (stored) {
         setHistory(JSON.parse(stored));
+      }
+    } catch {
+      // ignore
+    }
+
+    // Fetch site stats
+    axios
+      .get<{ success: boolean; data: { visits: number; conversions: number; summaries: number } }>("/api/stats")
+      .then((res) => {
+        if (res.data.success && res.data.data) {
+          setStats(res.data.data);
+        }
+      })
+      .catch(() => {});
+
+    // Track visit once per browser session
+    try {
+      if (typeof window !== "undefined" && !sessionStorage.getItem("visited_x2pdf")) {
+        sessionStorage.setItem("visited_x2pdf", "1");
+        axios
+          .post<{ success: boolean; data: { visits: number; conversions: number; summaries: number } }>("/api/stats", {
+            action: "visit",
+          })
+          .then((res) => {
+            if (res.data.success && res.data.data) {
+              setStats(res.data.data);
+            }
+          })
+          .catch(() => {});
       }
     } catch {
       // ignore
@@ -157,8 +194,29 @@ export default function Home() {
 
   const handleGenerateSummary = async (forceRefresh = false) => {
     if (!tweetData) return;
+
+    // Rate-limiting check on re-generation
+    if (forceRefresh && summaryCooldown > 0) {
+      showToast(`操作过于频繁，请等待 ${summaryCooldown} 秒后再次重试`);
+      return;
+    }
+
     setLoadingSummary(true);
     setSummaryError(null);
+
+    // If re-generating, trigger 15-second cooldown
+    if (forceRefresh) {
+      setSummaryCooldown(15);
+      const timer = setInterval(() => {
+        setSummaryCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
 
     try {
       const res = await axios.post<SummarizeResponse>("/api/summarize", {
@@ -173,6 +231,8 @@ export default function Home() {
         setSummary(res.data.data);
         setIsSummaryCollapsed(false);
         showToast("✨ AI 智能速读摘要已生成！");
+        // Real-time update summaries stat counter
+        setStats((prev) => (prev ? { ...prev, summaries: prev.summaries + 1 } : null));
       } else {
         setSummaryError(res.data.error || "生成摘要失败，请检查服务器 AI 配置");
       }
@@ -208,6 +268,8 @@ export default function Home() {
       if (res.data.success && res.data.data) {
         setTweetData(res.data.data);
         saveToHistory(res.data.data);
+        // Real-time update conversions stat counter
+        setStats((prev) => (prev ? { ...prev, conversions: prev.conversions + 1 } : null));
         // Scroll to toolbar so user immediately sees the download action buttons and settings
         setTimeout(() => {
           toolbarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -739,6 +801,15 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
           </button>
 
           <button
+            onClick={() => setSponsorOpen(true)}
+            className="px-2.5 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 rounded-xl text-xs font-medium border border-rose-500/30 flex items-center gap-1 transition cursor-pointer"
+            title="赞赏支持作者"
+          >
+            <Heart className="w-3.5 h-3.5 fill-rose-500/40 text-rose-400" />
+            <span className="hidden sm:inline">赞赏</span>
+          </button>
+
+          <button
             onClick={handleBackToInput}
             className="px-2.5 py-1.5 bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 rounded-xl text-xs font-medium border border-slate-700 hover:border-rose-500/30 flex items-center gap-1 transition cursor-pointer"
             title="返回输入新链接"
@@ -781,6 +852,17 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                 <span>返回输入链接</span>
               </button>
             )}
+
+            {/* Sponsor button in Header */}
+            <button
+              onClick={() => setSponsorOpen(true)}
+              className="text-xs text-rose-300 hover:text-rose-100 px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-rose-950/30"
+              title="赞赏支持作者"
+            >
+              <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-400" />
+              <span>赞赏支持</span>
+            </button>
+
             <a
               href="https://github.com/alongLFB/media-downloader"
               target="_blank"
@@ -810,6 +892,27 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
           <p className="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
             告别在推特狭窄信息流与干扰元素中阅读长篇大论。只需粘贴推文或文章链接，秒级提取纯净全文，自动排版为适合阅读、打印与永久归档的电子书格式。
           </p>
+
+          {/* Real-time Website Stats Index */}
+          {stats && (
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5 text-xs text-slate-400">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/70 border border-slate-800/90 backdrop-blur-xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-slate-400">累计访问:</span>
+                <span className="font-bold text-slate-200">{stats.visits.toLocaleString()}+ 次</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/70 border border-slate-800/90 backdrop-blur-xs">
+                <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                <span className="text-slate-400">长文转换:</span>
+                <span className="font-bold text-slate-200">{stats.conversions.toLocaleString()}+ 篇</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/70 border border-slate-800/90 backdrop-blur-xs">
+                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                <span className="text-slate-400">AI 深度速读:</span>
+                <span className="font-bold text-slate-200">{stats.summaries.toLocaleString()}+ 次</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Input Box Component */}
@@ -1331,18 +1434,22 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                         <div className="no-print flex items-center gap-1.5">
                           <button
                             onClick={() => handleGenerateSummary(true)}
-                            disabled={loadingSummary}
+                            disabled={loadingSummary || summaryCooldown > 0}
                             className={`p-1.5 rounded-lg transition cursor-pointer text-xs flex items-center gap-1 ${
+                              summaryCooldown > 0 ? "opacity-60 cursor-not-allowed" : ""
+                            } ${
                               isLight
                                 ? "text-slate-600 hover:text-indigo-600 hover:bg-slate-200/60"
                                 : isSepia
                                 ? "text-[#6e5033] hover:text-[#2d1b0c] hover:bg-[#ebdeca]"
                                 : "text-slate-400 hover:text-white hover:bg-white/10"
                             }`}
-                            title="重新调用 AI 生成新的速读摘要"
+                            title={summaryCooldown > 0 ? `冷却中 (${summaryCooldown}s)` : "重新调用 AI 生成新的速读摘要"}
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${loadingSummary ? "animate-spin text-indigo-500" : ""}`} />
-                            <span className="hidden sm:inline font-medium">重新生成</span>
+                            <span className="hidden sm:inline font-medium">
+                              {loadingSummary ? "生成中..." : summaryCooldown > 0 ? `冷却中 (${summaryCooldown}s)` : "重新生成"}
+                            </span>
                           </button>
                           <button
                             onClick={() => setIsSummaryCollapsed(!isSummaryCollapsed)}
@@ -1735,6 +1842,14 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
+                    onClick={() => setSponsorOpen(true)}
+                    className="px-3.5 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 rounded-xl text-xs sm:text-sm font-medium border border-rose-500/30 flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                    title="觉得工具好用？赞赏请作者喝杯咖啡"
+                  >
+                    <Heart className="w-4 h-4 text-rose-400 fill-rose-500/30" />
+                    <span>打赏支持</span>
+                  </button>
+                  <button
                     onClick={handleDownloadPdf}
                     disabled={generatingPdf}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md flex items-center gap-1.5 transition cursor-pointer"
@@ -1860,10 +1975,35 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
         )}
       </main>
 
+      {/* Floating Sponsor Button (Bottom-Right, non-print) */}
+      <button
+        onClick={() => setSponsorOpen(true)}
+        className="no-print fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-40 px-3.5 py-2.5 rounded-full bg-slate-900/90 hover:bg-slate-800 text-rose-300 hover:text-rose-200 border border-rose-500/40 shadow-lg shadow-rose-950/40 backdrop-blur-md transition-all transform hover:scale-105 flex items-center gap-2 cursor-pointer group"
+        title="觉得好用？请作者喝杯咖啡 ☕"
+      >
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+        </span>
+        <Heart className="w-4 h-4 text-rose-400 fill-rose-500/40 group-hover:scale-110 transition-transform" />
+        <span className="text-xs font-semibold">赞赏作者</span>
+      </button>
+
       {/* Footer */}
-      <footer className="no-print border-t border-white/10 py-3 text-center text-[11px] text-slate-500">
+      <footer className="no-print border-t border-white/10 py-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
         <p>© 2026 X to PDF Converter · 专注深度阅读与优质长文归档</p>
+        <span className="hidden sm:inline opacity-30">|</span>
+        <button
+          onClick={() => setSponsorOpen(true)}
+          className="text-rose-400/85 hover:text-rose-300 hover:underline flex items-center gap-1 transition cursor-pointer"
+        >
+          <Heart className="w-3.5 h-3.5 fill-rose-500/30" />
+          <span>请作者喝杯咖啡 (微信/支付宝)</span>
+        </button>
       </footer>
+
+      {/* Sponsor Modal */}
+      <SponsorModal isOpen={sponsorOpen} onClose={() => setSponsorOpen(false)} />
     </div>
   );
 }

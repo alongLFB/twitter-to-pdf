@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ParsedTweet, ArticleBlock, ParseResponse } from "@/types/tweet";
+import { incrementStat } from "@/lib/stats";
 
 interface DraftJsEntityRange {
   key: number | string;
@@ -390,6 +391,12 @@ export async function POST(req: NextRequest) {
       readingTime,
       wordCount,
     };
+
+    try {
+      incrementStat("conversions");
+    } catch {
+      // ignore
+    }
 
     return NextResponse.json<ParseResponse>({
       success: true,

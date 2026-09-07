@@ -1,11 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ArticleSummary, SummarizeResponse } from "@/types/tweet";
+import { incrementStat } from "@/lib/stats";
 
 // Simple in-memory cache to save API calls for repeat requests
 const summaryCache = new Map<string, ArticleSummary>();
 
+// IP-based Rate Limiter: max 5 requests per 60 seconds per IP
+interface RateLimitRecord {
+  timestamps: number[];
+}
+const rateLimitMap = new Map<string, RateLimitRecord>();
+
+function checkRateLimit(ip: string, maxRequests = 5, windowMs = 60 * 1000): { allowed: boolean; retryAfter: number } {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip) || { timestamps: [] };
+  const validTimestamps = record.timestamps.filter((t) => now - t < windowMs);
+
+  if (validTimestamps.length >= maxRequests) {
+    const oldest = validTimestamps[0];
+    const retryAfter = Math.ceil((windowMs - (now - oldest)) / 1000);
+    return { allowed: false, retryAfter };
+  }
+
+  validTimestamps.push(now);
+  rateLimitMap.set(ip, { timestamps: validTimestamps });
+  return { allowed: true, retryAfter: 0 };
+}
+
 export async function POST(req: NextRequest) {
   try {
+    // 1. IP Rate Limiting Check
+    const forwarded =
+      req.headers.get("cf-connecting-ip") ||
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
+    const clientIp = forwarded.split(",")[0].trim();
+
+    if (clientIp !== "unknown" && clientIp !== "127.0.0.1" && clientIp !== "::1") {
+      const { allowed, retryAfter } = checkRateLimit(clientIp, 5, 60 * 1000);
+      if (!allowed) {
+        return NextResponse.json<SummarizeResponse>(
+          {
+            success: false,
+            error: `AI 总结请求过于频繁，请在 ${retryAfter} 秒后再试（保护模式：每分钟最多 5 次）。`,
+          },
+          { status: 429 }
+        );
+      }
+    }
+
     const body = await req.json();
     const { text, title, tweetId, forceRefresh } = body;
 
@@ -242,6 +286,12 @@ export async function POST(req: NextRequest) {
         summaryCache.clear();
       }
       summaryCache.set(cacheKey, summary);
+    }
+
+    try {
+      incrementStat("summaries");
+    } catch {
+      // ignore
     }
 
     return NextResponse.json<SummarizeResponse>({

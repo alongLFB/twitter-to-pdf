@@ -33,8 +33,9 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 COPY --from=builder /app/public ./public
 
-# Set up correct permissions for prerender cache
+# Set up correct permissions for prerender cache and data storage
 RUN mkdir .next && chown nextjs:nodejs .next
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
 # Leverage output standalone traces for minimal image footprint (~120MB)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

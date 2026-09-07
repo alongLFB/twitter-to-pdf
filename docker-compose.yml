@@ -8,6 +8,8 @@ services:
     ports:
       # 绑定至 127.0.0.1，避免公网直通，默认端口配置为 3032
       - "127.0.0.1:${APP_PORT:-3032}:3032"
+    volumes:
+      - ./data:/app/data
     env_file:
       - path: .env
         required: false
