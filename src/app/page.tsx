@@ -801,14 +801,6 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
           </button>
 
           <button
-            onClick={handleScrollToTop}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition cursor-pointer"
-            title="返回顶部"
-          >
-            <ArrowUp className="w-4 h-4" />
-          </button>
-
-          <button
             onClick={handleBackToInput}
             className="px-2.5 py-1.5 bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 rounded-xl text-xs font-medium border border-slate-700 hover:border-rose-500/30 flex items-center gap-1 transition cursor-pointer"
             title="返回输入新链接"
