@@ -1,26 +1,247 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #030712;
+  --foreground: #f9fafb;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-serif: Georgia, Cambria, "Songti SC", "Noto Serif SC", serif;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  font-family: var(--font-sans);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f293d;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* Glowing Animations & Background Gradients */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 7s ease-in-out infinite;
+}
+
+.glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  background: rgba(17, 24, 39, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-card:hover {
+  background: rgba(30, 41, 59, 0.75);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+/* Paper Theme Styles for Reader Mode */
+.theme-dark {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+.theme-light {
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.theme-sepia {
+  background: #fbf0d9;
+  color: #5f4b32;
+}
+
+/* =========================================================
+   Print Styles: Formatted for clean vector PDF without cuts
+   ========================================================= */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 18mm 16mm 20mm 16mm;
+  }
+
+  /* Reset all overflow constraints so Chromium pagination engine can work properly */
+  html,
+  body,
+  #__next,
+  main,
+  div {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-size: 11pt !important;
+    line-height: 1.8 !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  /* Reset flexbox wrappers that break browser print pagination */
+  .min-h-screen,
+  .flex,
+  .flex-col,
+  .flex-1 {
+    display: block !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  /* Hide interactive controls, navigation, inputs, and buttons */
+  .no-print,
+  header,
+  footer,
+  nav,
+  button,
+  input,
+  aside,
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* Main container in print */
+  main {
+    display: block !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .printable-container {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  /* PREVENT TEXT CUTS ACROSS PAGES: Essential rules */
+  .printable-container p,
+  .printable-container h1,
+  .printable-container h2,
+  .printable-container h3,
+  .printable-container blockquote,
+  .printable-container img,
+  .printable-container figure,
+  .printable-container hr,
+  .article-block-item,
+  .print-avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    -webkit-column-break-inside: avoid !important;
+  }
+
+  /* Keep headings attached to following content */
+  .printable-container h1,
+  .printable-container h2,
+  .printable-container h3 {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Typography for print */
+  .printable-container h1 {
+    font-size: 22pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin-bottom: 12pt !important;
+    line-height: 1.3 !important;
+  }
+
+  .printable-container h2 {
+    font-size: 15pt !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    margin-top: 16pt !important;
+    margin-bottom: 8pt !important;
+  }
+
+  .printable-container h3 {
+    font-size: 13pt !important;
+    font-weight: 600 !important;
+    color: #334155 !important;
+    margin-top: 14pt !important;
+    margin-bottom: 6pt !important;
+  }
+
+  .printable-container p {
+    font-size: 11pt !important;
+    line-height: 1.85 !important;
+    color: #334155 !important;
+    margin-top: 0 !important;
+    margin-bottom: 10pt !important;
+    text-align: justify !important;
+    text-justify: inter-ideograph !important;
+    orphans: 3 !important;
+    widows: 3 !important;
+  }
+
+  .printable-container blockquote {
+    border-left: 3.5px solid #6366f1 !important;
+    background: #f8fafc !important;
+    color: #475569 !important;
+    padding: 8pt 14pt !important;
+    margin: 12pt 0 !important;
+  }
+
+  .printable-container hr {
+    border: none !important;
+    border-top: 1px solid #e2e8f0 !important;
+    margin: 18pt 0 !important;
+  }
+
+  .printable-container img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  .printable-container a {
+    color: #4338ca !important;
+    text-decoration: underline !important;
+  }
 }
