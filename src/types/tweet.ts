@@ -36,6 +36,8 @@ export interface ParsedTweet {
   createdAt: string;
   readingTime: number; // in minutes
   wordCount: number;
+  isFromArchive?: boolean;
+  archivedAt?: string;
 }
 
 export interface ParseResponse {

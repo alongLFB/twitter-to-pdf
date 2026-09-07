@@ -36,6 +36,7 @@ import {
   ChevronUp,
   Share2,
   Image as ImageIcon,
+  Archive,
 } from "lucide-react";
 import { ParsedTweet, ParseResponse, ArticleSummary, SummarizeResponse } from "@/types/tweet";
 import { SponsorModal } from "@/components/SponsorModal";
@@ -1674,6 +1675,23 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                   : "theme-dark border border-white/10"
               } ${fontFamily === "serif" ? "font-serif" : "font-sans"}`}
             >
+              {/* Archived Offline Snapshot Banner */}
+              {tweetData.isFromArchive && (
+                <div className="no-print mb-6 p-3.5 sm:p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 flex items-start sm:items-center justify-between gap-3 text-xs sm:text-sm">
+                  <div className="flex items-center gap-2.5">
+                    <Archive className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>
+                      <strong>云端永久快照归档模式</strong>：原文在 X (Twitter) 当前不可用或已被作者删除，系统已自动从云端安全快照库中完整还原。您仍可正常阅读全文、调用 AI 速读并下载导出 PDF。
+                    </span>
+                  </div>
+                  {tweetData.archivedAt && (
+                    <span className="text-[11px] text-amber-400/80 shrink-0 hidden sm:inline">
+                      快照时间：{new Date(tweetData.archivedAt).toLocaleDateString("zh-CN")}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Document Header */}
               <div className="border-b border-black/10 dark:border-white/10 pb-6 mb-8 print-avoid-break">
                 <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-4 leading-snug">

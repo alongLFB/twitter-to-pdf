@@ -9,7 +9,18 @@
 ## ✨ 核心特性
 
 - 📄 **原生支持 Twitter Article**：专为 Twitter 最新的 Article / Notes 长文优化，自动解析 Draft.js 富文本结构，提取多达数百段落、章节层级、引用块、内嵌插图及封面配图（如孙宇晨《我的女友景甜》等长文）。
-- 📑 **双模 PDF 导出**：
+- 🛡️ **云端永久快照与防删推容灾 (Anti-Deletion Snapshot Archive)**：
+  - **智能容灾策略**：优先拉取推特远程最新内容，一旦推特原文被作者删除、设为私密或账号被封锁，系统自动无缝降级读取服务器本地持久化快照。
+  - **永久可读与归档**：只要推文曾被解析过一次，即可永久保存在服务器持久卷（`./data/archive`）中，随时查看排版全文、生成 AI 速读摘要并导出高精 PDF，彻底告别“推文已删除”的遗憾。
+- ⚡ **AI 智能深度速读 (TL;DR)**：
+  - 支持 **Gemini 2.5、OpenAI GPT、Claude、DeepSeek** 等多种主流大模型。
+  - 自动提炼【一句话核心神总结】、【结构化关键要点】、【精选金句】与【话题标签】。
+  - **多维分享**：支持一键复制结构化速读文案、一键生成 2x 视网膜高清总结长图并直接存入剪贴板（微信可直接 Ctrl+V 粘贴）。
+  - **服务端持久化缓存**：已生成的速读摘要自动持久化存储，重复查看零等待、节省 Token 开销。
+- 🔗 **防风控极简短链 (`/s/:id`)**：
+  - 对外分享链接彻底脱敏，移除包含推特敏感关键词的 `?url=https://x.com/...`，全面升级为内部专属短链 `https://x2pdf.alonglfb.com/s/{tweetId}`，极大降低微信、QQ、企微等应用的限流或拦截风险。
+  - 访问短链时，页面输入框自动解析并精确还原推特作者的完整原生链接。
+- 📑 **双模高质感 PDF 导出**：
   - **一键直接下载 PDF**：前端通过轻量级智能分页渲染，快速生成带页眉页码的 `.pdf` 离线文件。
   - **浏览器原生矢量打印 (Save as PDF)**：深度调校的 `@media print` 打印引擎，支持 A4 / Letter 页面边距、分页防截断保护（避免图片与段落断层）、无杂质纯白排版、超清可选中文本。
 - 📖 **沉浸式阅读器 (Reader Mode)**：
@@ -18,7 +29,8 @@
   - 支持 **多套背景主题**（明亮白 / 护眼羊皮纸 / 深邃黑）
   - 支持 **封面图** 与 **推文互动数据**（点赞、转推、阅读量）显示开关
 - 📝 **Markdown 与纯文本导出**：一键生成包含 YAML Frontmatter 格式的 `.md` 文件或复制纯文本，无缝同步至 Notion、Obsidian、Logseq。
-- 🕒 **本地历史记录**：自动保存最近转换过的长文历史（存储在浏览器 localStorage，不上传服务器），点击即重现，无需反复粘贴。
+- 🕒 **本地历史记录管理**：自动保存最近转换过的长文历史（存储在浏览器 localStorage，不上传服务器，完全保护隐私），支持单条快速删除或一键清空。
+- 📊 **全站实时统计指数**：服务端持久化统计全站访问量、推文转换篇数与 AI 深度速读总次数。
 - 🛡️ **CORS 图片反代保护**：内置 `/api/proxy-image` 解决跨域图片在 Canvas 导出时的白屏问题。
 
 ---
@@ -50,7 +62,34 @@ docker compose ps
 docker compose logs -f
 ```
 
-容器会自动在本地监听 `127.0.0.1:3000`，由 Nginx 负责外网反向代理与 HTTPS 加密。
+容器会自动在本地监听 `127.0.0.1:3032`，由 Nginx 负责外网反向代理与 HTTPS 加密。
+
+---
+
+### 环境变量配置 (`.env`)
+
+在项目根目录下创建或编辑 `.env` 文件，可按需配置 AI 速读模型与服务端口：
+
+```env
+# 服务端口（默认 3032）
+APP_PORT=3032
+
+# AI 总结提供商: gemini / openai / anthropic
+AI_PROVIDER=openai
+
+# 模型名称 (如 gpt-4o-mini, gpt-4o, gemini-2.5-flash, deepseek-chat 等)
+AI_MODEL=gpt-4o-mini
+
+# OpenAI / 兼容 API (如 DeepSeek, OneAPI, 转发中转)
+OPENAI_API_KEY=sk-xxxx
+OPENAI_BASE_URL=https://api.openai.com/v1
+
+# Gemini 配置
+GEMINI_API_KEY=AIzaxxxx
+
+# Anthropic Claude 配置
+ANTHROPIC_API_KEY=sk-ant-xxxx
+```
 
 ---
 
@@ -106,6 +145,7 @@ npm run dev
    - 点击 **下载 PDF 文件** 即可生成并保存 `.pdf`。
    - 点击 **打印 / 另存为高精 PDF** 可调用系统打印机直接另存为高清晰度矢量 PDF。
    - 点击 **Markdown** 导出笔记文档。
+   - 点击 **复制 AI 总结图片** 一键生成 2x 高清卡片长图并写入剪贴板。
 
 ---
 
@@ -113,23 +153,30 @@ npm run dev
 
 ```text
 twitter-to-pdf/
+├── data/                           # 服务端 Docker 卷持久化数据目录
+│   ├── archive/                    # 推文与文章云端永久快照备份 ({id}.json)
+│   ├── summaries/                  # AI 智能速读摘要持久化缓存 ({id}.json)
+│   └── stats.json                  # 全站访问人次、转换数与AI速读累计统计
 ├── src/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── parse/
-│   │   │   │   └── route.ts        # Twitter推文/长文服务端解析接口
-│   │   │   └── proxy-image/
-│   │   │       └── route.ts        # 跨域图片反代安全接口
+│   │   │   ├── parse/route.ts      # 推文服务端解析与快照归档/容灾回退接口
+│   │   │   ├── summarize/route.ts  # 多模型 AI 智能速读摘要与限流/缓存接口
+│   │   │   ├── stats/route.ts      # 全站实时统计读取与上报接口
+│   │   │   └── proxy-image/route.ts# 跨域图片反代安全接口
 │   │   ├── favicon.ico
 │   │   ├── globals.css             # Tailwind v4、玻璃态动画与Print打印样式表
 │   │   ├── layout.tsx              # 根布局与元数据配置
 │   │   └── page.tsx                # 主页面 (搜索栏、阅读器、导出栏、历史记录)
+│   ├── lib/
+│   │   ├── archive.ts              # 云端快照归档与容灾读取工具函数
+│   │   └── stats.ts                # 全站运行指数持久化读写模块
 │   └── types/
 │       └── tweet.ts                # 推文、文章块与API响应类型定义
 ├── nginx/
 │   └── twitter-to-pdf.conf         # 生产级 Nginx 反代与 SSL 配置模板
 ├── Dockerfile                      # Next.js Standalone 极简多阶镜像构建文件
-├── docker-compose.yml              # Docker 编排配置
+├── docker-compose.yml              # Docker 编排配置 (持久化挂载 ./data:/app/data)
 ├── deploy.sh                       # SA1 服务器一键部署脚本
 ├── .dockerignore
 ├── package.json

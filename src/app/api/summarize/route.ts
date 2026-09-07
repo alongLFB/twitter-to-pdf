@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ArticleSummary, SummarizeResponse } from "@/types/tweet";
 import { incrementStat } from "@/lib/stats";
+import { saveSummaryToArchive, getSummaryFromArchive } from "@/lib/archive";
 
 // Simple in-memory cache to save API calls for repeat requests
 const summaryCache = new Map<string, ArticleSummary>();
@@ -60,13 +61,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check cache (unless forceRefresh is requested)
+    // Check in-memory and persistent disk cache (unless forceRefresh is requested)
     const cacheKey = tweetId || `${title || ""}_${text.slice(0, 80)}_${text.length}`;
-    if (!forceRefresh && summaryCache.has(cacheKey)) {
-      return NextResponse.json<SummarizeResponse>({
-        success: true,
-        data: summaryCache.get(cacheKey),
-      });
+    if (!forceRefresh) {
+      if (summaryCache.has(cacheKey)) {
+        return NextResponse.json<SummarizeResponse>({
+          success: true,
+          data: summaryCache.get(cacheKey),
+        });
+      }
+      if (tweetId) {
+        const diskSummary = getSummaryFromArchive(tweetId);
+        if (diskSummary) {
+          summaryCache.set(cacheKey, diskSummary);
+          return NextResponse.json<SummarizeResponse>({
+            success: true,
+            data: diskSummary,
+          });
+        }
+      }
     }
 
     // Determine Provider & Model from Environment
@@ -286,6 +299,9 @@ export async function POST(req: NextRequest) {
         summaryCache.clear();
       }
       summaryCache.set(cacheKey, summary);
+      if (tweetId) {
+        saveSummaryToArchive(tweetId, summary);
+      }
     }
 
     try {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ParsedTweet, ArticleBlock, ParseResponse } from "@/types/tweet";
 import { incrementStat } from "@/lib/stats";
+import { saveTweetToArchive, getTweetFromArchive } from "@/lib/archive";
 
 interface DraftJsEntityRange {
   key: number | string;
@@ -102,6 +103,7 @@ function calculateWordCount(text: string): number {
 }
 
 export async function POST(req: NextRequest) {
+  let tweetId: string | null = null;
   try {
     const body = await req.json();
     const urlOrId = body.url || body.id;
@@ -113,7 +115,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tweetId = extractTweetId(urlOrId);
+    tweetId = extractTweetId(urlOrId);
     if (!tweetId) {
       return NextResponse.json<ParseResponse>(
         { success: false, error: "未识别出有效的推文 ID，请检查链接格式是否正确" },
@@ -190,6 +192,7 @@ export async function POST(req: NextRequest) {
               readingTime: Math.max(1, Math.ceil(wordCount / 350)),
               wordCount,
             };
+            saveTweetToArchive(parsed);
             return NextResponse.json<ParseResponse>({ success: true, data: parsed });
           }
         }
@@ -197,8 +200,15 @@ export async function POST(req: NextRequest) {
         console.error("Fallback also failed:", errFallback);
       }
 
+      // Fallback to local server archive snapshot if remote fetch returned 404 / deleted
+      const archived = getTweetFromArchive(tweetId);
+      if (archived) {
+        console.log(`[Archive] Successfully recovered tweet ${tweetId} from local snapshot archive`);
+        return NextResponse.json<ParseResponse>({ success: true, data: archived });
+      }
+
       return NextResponse.json<ParseResponse>(
-        { success: false, error: "未能获取到该推文或文章，可能已被删除或设为私密。" },
+        { success: false, error: "未能获取到该推文或文章，原文可能已被删除或设为私密，且此前未生成过云端快照归档。" },
         { status: 404 }
       );
     }
@@ -405,12 +415,28 @@ export async function POST(req: NextRequest) {
       // ignore
     }
 
+    try {
+      saveTweetToArchive(parsedTweet);
+    } catch (e) {
+      console.warn("Failed to archive tweet:", e);
+    }
+
     return NextResponse.json<ParseResponse>({
       success: true,
       data: parsedTweet,
     });
   } catch (error: unknown) {
     console.error("Parse error:", error);
+    if (typeof tweetId === "string" && tweetId) {
+      const archived = getTweetFromArchive(tweetId);
+      if (archived) {
+        console.log(`[Archive] Recovered tweet ${tweetId} from snapshot after exception`);
+        return NextResponse.json<ParseResponse>({
+          success: true,
+          data: archived,
+        });
+      }
+    }
     const msg = error instanceof Error ? error.message : "解析过程中发生未知错误";
     return NextResponse.json<ParseResponse>(
       { success: false, error: msg },
