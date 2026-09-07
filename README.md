@@ -57,27 +57,21 @@ docker compose logs -f
 ### 方式二：Nginx 反向代理与 SSL 配置
 
 1. **复制配置文件**：
-   将项目中的 `nginx/twitter-to-pdf.conf` 复制到系统的 Nginx 配置目录：
+   将项目中的 `nginx/twitter-to-pdf.conf` 复制到系统的 Nginx 配置目录（已预置 `x2pdf.alonglfb.com` 与 `xtopdf.alonglfb.com` 转发至 `3032` 端口）：
    ```bash
    sudo cp nginx/twitter-to-pdf.conf /etc/nginx/conf.d/twitter-to-pdf.conf
    ```
 
-2. **替换域名**：
-   编辑配置文件，将其中的 `your_domain.com` 替换为您实际解析到该服务器的域名：
+2. **一键申请双域名免费 SSL 证书 (Certbot)**：
    ```bash
-   sudo sed -i 's/your_domain.com/你的域名.com/g' /etc/nginx/conf.d/twitter-to-pdf.conf
-   ```
-
-3. **申请免费 SSL 证书 (Certbot)**：
-   ```bash
-   # 测试 Nginx 配置语法
+   # 测试 Nginx 语法
    sudo nginx -t
 
-   # 重载 Nginx
-   sudo systemctl reload nginx
+   # 一键申请双域名 SAN 证书并自动完成 SSL 配置
+   sudo certbot --nginx -d x2pdf.alonglfb.com -d xtopdf.alonglfb.com
 
-   # 自动申请并安装 Let's Encrypt 证书
-   sudo certbot --nginx -d 你的域名.com
+   # 热重载 Nginx
+   sudo systemctl reload nginx
    ```
 
 ---
