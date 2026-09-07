@@ -314,27 +314,169 @@ export default function Home() {
 
   const handleCopySummaryImage = async () => {
     if (!summary || !tweetData) return;
-    const card = document.getElementById("ai-summary-card");
-    if (!card) return;
 
     setCopyingSummaryImage(true);
+    let offscreen: HTMLDivElement | null = null;
+
+    const escapeHtml = (str: string) =>
+      (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
     try {
       const html2canvas = (await import("html2canvas")).default;
 
-      // Expand card if it was collapsed before snapshot
-      const wasCollapsed = isSummaryCollapsed;
-      if (wasCollapsed) {
-        setIsSummaryCollapsed(false);
-        await new Promise((resolve) => setTimeout(resolve, 100));
+      // Palette according to readerTheme with pure inline hex colors (avoids Tailwind v4 oklch crash)
+      const isSep = readerTheme === "sepia";
+      const isDk = readerTheme === "dark";
+
+      const bg = isSep ? "#fbf5ea" : isDk ? "#0f172a" : "#ffffff";
+      const textPrimary = isSep ? "#2d1b0c" : isDk ? "#f8fafc" : "#0f172a";
+      const textSecondary = isSep ? "#422e1b" : isDk ? "#cbd5e1" : "#334155";
+      const textMuted = isSep ? "#7a5839" : isDk ? "#64748b" : "#64748b";
+      const borderCol = isSep ? "#dfcfba" : isDk ? "#334155" : "#e2e8f0";
+      const boxBg = isSep ? "#f2e4d0" : isDk ? "#1e293b" : "#f8fafc";
+      const accent = isSep ? "#8c5722" : isDk ? "#818cf8" : "#4f46e5";
+      const tagBg = isSep ? "#ebdec9" : isDk ? "#312e81" : "#e0e7ff";
+      const tagText = isSep ? "#5c3c1e" : isDk ? "#c7d2fe" : "#4338ca";
+      const quoteBg = isSep ? "#fcf7ee" : isDk ? "#162032" : "#ffffff";
+      const quoteBorder = isSep ? "#8c5722" : isDk ? "#818cf8" : "#6366f1";
+
+      offscreen = document.createElement("div");
+      offscreen.style.position = "fixed";
+      offscreen.style.left = "-99999px";
+      offscreen.style.top = "0";
+      offscreen.style.width = "660px";
+      offscreen.style.zIndex = "-9999";
+      offscreen.style.backgroundColor = bg;
+      offscreen.style.color = textPrimary;
+      offscreen.style.padding = "28px";
+      offscreen.style.boxSizing = "border-box";
+      offscreen.style.fontFamily =
+        fontFamily === "serif"
+          ? 'Georgia, Cambria, "Songti SC", "Noto Serif SC", serif'
+          : '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif';
+
+      let keyPointsHtml = "";
+      if (summary.keyTakeaways && summary.keyTakeaways.length > 0) {
+        keyPointsHtml = `
+          <div style="margin-top: 16px;">
+            <div style="font-size: 13px; font-weight: 700; color: ${textPrimary}; margin-bottom: 8px;">
+              📌 关键要点提炼
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              ${summary.keyTakeaways
+                .map(
+                  (pt) => `
+                <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.6; color: ${textSecondary};">
+                  <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${accent}; margin-top: 7px; flex-shrink: 0;"></span>
+                  <span style="flex: 1;">${escapeHtml(pt)}</span>
+                </div>`
+                )
+                .join("")}
+            </div>
+          </div>
+        `;
       }
 
-      const canvas = await html2canvas(card, {
+      let quoteHtml = "";
+      if (summary.goldenQuote) {
+        quoteHtml = `
+          <div style="margin-top: 16px; padding: 12px 16px; background: ${quoteBg}; border: 1px solid ${borderCol}; border-left: 4px solid ${quoteBorder}; border-radius: 10px;">
+            <div style="font-size: 11px; font-weight: 700; color: ${quoteBorder}; margin-bottom: 4px;">
+              💬 精选金句
+            </div>
+            <div style="font-size: 13px; font-style: italic; line-height: 1.6; color: ${textPrimary}; font-weight: 500;">
+              “${escapeHtml(summary.goldenQuote)}”
+            </div>
+          </div>
+        `;
+      }
+
+      let tagsHtml = "";
+      if (summary.tags && summary.tags.length > 0) {
+        tagsHtml = `
+          <div style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px;">
+            ${summary.tags
+              .map(
+                (tag) =>
+                  `<span style="font-size: 11px; font-weight: 500; background: ${tagBg}; color: ${tagText}; padding: 2px 9px; border-radius: 9999px;">#${escapeHtml(tag)}</span>`
+              )
+              .join("")}
+          </div>
+        `;
+      }
+
+      const modelBadge = escapeHtml(summary.model || summary.provider || "AI 速读");
+      const safeTitle = escapeHtml(tweetData.title || "推文速读");
+      const authorName = escapeHtml(tweetData.author.name);
+      const authorScreenName = escapeHtml(tweetData.author.screen_name);
+      const dateStr = new Date(tweetData.createdAt).toLocaleDateString("zh-CN");
+
+      offscreen.innerHTML = `
+        <div style="border: 1px solid ${borderCol}; border-radius: 16px; padding: 22px; background: ${bg};">
+          <!-- Header -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid ${borderCol};">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: ${accent}; color: #ffffff; border-radius: 6px; font-size: 12px;">⚡</span>
+              <span style="font-size: 15px; font-weight: 800; color: ${textPrimary};">AI 智能速读 · 核心提炼 (TL;DR)</span>
+            </div>
+            <span style="font-size: 10.5px; font-weight: 600; background: ${tagBg}; color: ${tagText}; padding: 2px 8px; border-radius: 9999px;">
+              ${modelBadge}
+            </span>
+          </div>
+
+          <!-- Title & Meta -->
+          <div style="margin-bottom: 14px;">
+            <h2 style="font-size: 17px; font-weight: 800; line-height: 1.45; color: ${textPrimary}; margin: 0 0 6px 0;">
+              《${safeTitle}》
+            </h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: ${textMuted};">
+              <span><strong>${authorName}</strong> (@${authorScreenName})</span>
+              <span>${dateStr}</span>
+            </div>
+          </div>
+
+          <!-- One Sentence Summary Box -->
+          <div style="padding: 12px 15px; background: ${boxBg}; border: 1px solid ${borderCol}; border-radius: 10px;">
+            <div style="font-size: 11.5px; font-weight: 800; color: ${accent}; margin-bottom: 5px;">
+              💡 核心结论
+            </div>
+            <div style="font-size: 13.5px; font-weight: 600; line-height: 1.6; color: ${textPrimary};">
+              ${escapeHtml(summary.oneSentence)}
+            </div>
+          </div>
+
+          ${keyPointsHtml}
+          ${quoteHtml}
+          ${tagsHtml}
+
+          <!-- Footer Attribution -->
+          <div style="margin-top: 18px; padding-top: 12px; border-top: 1px solid ${borderCol}; display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: ${textMuted};">
+            <span>由 <strong>X to PDF</strong> 智能提炼 · x2pdf.alonglfb.com</span>
+            <span>长按或右键可保存分享</span>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(offscreen);
+
+      const canvas = await html2canvas(offscreen, {
         scale: 2,
         useCORS: true,
         allowTaint: false,
-        backgroundColor: readerTheme === "light" ? "#f8fafc" : readerTheme === "sepia" ? "#f5ebd9" : "#0f172a",
-        ignoreElements: (element) => element.classList.contains("no-print"),
+        backgroundColor: bg,
+        logging: false,
       });
+
+      // Cleanup offscreen element
+      if (offscreen && document.body.contains(offscreen)) {
+        document.body.removeChild(offscreen);
+        offscreen = null;
+      }
 
       canvas.toBlob(async (blob) => {
         if (!blob) {
@@ -355,19 +497,19 @@ export default function Home() {
             const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = blobUrl;
-            const safeTitle = (tweetData.title || "ai-summary").replace(/[/\\?%*:|"<>]/g, "_").slice(0, 20);
-            a.download = `AI速读总结_${safeTitle}.png`;
+            const fileTitle = (tweetData.title || "ai-summary").replace(/[/\\?%*:|"<>]/g, "_").slice(0, 20);
+            a.download = `AI速读总结_${fileTitle}.png`;
             a.click();
             URL.revokeObjectURL(blobUrl);
-            showToast("已生成并下载 AI 总结长图！");
+            showToast("已自动保存 AI 总结长图至下载目录！");
           }
         } catch (clipErr) {
           console.warn("ClipboardItem write failed, fallback to download:", clipErr);
           const blobUrl = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = blobUrl;
-          const safeTitle = (tweetData.title || "ai-summary").replace(/[/\\?%*:|"<>]/g, "_").slice(0, 20);
-          a.download = `AI速读总结_${safeTitle}.png`;
+          const fileTitle = (tweetData.title || "ai-summary").replace(/[/\\?%*:|"<>]/g, "_").slice(0, 20);
+          a.download = `AI速读总结_${fileTitle}.png`;
           a.click();
           URL.revokeObjectURL(blobUrl);
           showToast("已自动保存 AI 总结卡片图片至下载目录！");
@@ -377,6 +519,9 @@ export default function Home() {
       }, "image/png");
     } catch (err) {
       console.error("Copy summary image failed:", err);
+      if (offscreen && document.body.contains(offscreen)) {
+        document.body.removeChild(offscreen);
+      }
       showToast("生成图片失败，请重试");
       setCopyingSummaryImage(false);
     }
