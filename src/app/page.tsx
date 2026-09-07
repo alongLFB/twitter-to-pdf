@@ -410,11 +410,11 @@ export default function Home() {
         let keyPointsHtml = "";
         if (summary.keyTakeaways && summary.keyTakeaways.length > 0) {
           keyPointsHtml = `
-            <div style="margin-top: 8px; font-size: 11.5px; line-height: 1.55; color: #334155;">
-              <strong style="color: #1e293b; font-size: 11.5px; display: block; margin-bottom: 3px;">📌 核心要点速览：</strong>
-              <ul style="margin: 0; padding-left: 18px;">
-                ${summary.keyTakeaways.map((point) => `<li style="margin-bottom: 3px;">${point}</li>`).join("")}
-              </ul>
+            <div style="margin-top: 8px; font-size: 11.5px; line-height: 1.6; color: #334155;">
+              <strong style="color: #1e293b; font-size: 11.5px; display: block; margin-bottom: 4px;">📌 核心要点速览：</strong>
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                ${summary.keyTakeaways.map((point) => `<div style="line-height: 1.5;">${point}</div>`).join("")}
+              </div>
             </div>
           `;
         }
@@ -1262,184 +1262,338 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
               </div>
 
               {/* AI Article Summary Card */}
-              {summary ? (
-                <div
-                  id="ai-summary-card"
-                  className={`mb-8 rounded-2xl border transition-all duration-200 article-block-item print-avoid-break overflow-hidden ${
-                    !includeSummaryInPdf ? "print:hidden" : ""
-                  } ${
-                    readerTheme === "light"
-                      ? "bg-gradient-to-br from-indigo-50/90 via-slate-50 to-purple-50/60 border-indigo-200/80 text-slate-800 shadow-sm"
-                      : readerTheme === "sepia"
-                      ? "bg-[#f5ecdf] border-[#dac8af] text-[#433120] shadow-sm"
-                      : "bg-slate-900/80 border-indigo-500/30 text-slate-200 shadow-lg"
-                  }`}
-                >
-                  {/* Card Header */}
-                  <div className="p-4 sm:p-5 pb-3 border-b border-black/5 dark:border-white/5 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm">
-                        <Sparkles className="w-4 h-4 text-amber-300" />
-                      </div>
-                      <span className="font-bold text-sm sm:text-base tracking-tight text-indigo-950 dark:text-indigo-200">
-                        AI 智能速读 · 核心提炼 (TL;DR)
-                      </span>
-                      {(summary.model || summary.provider) && (
-                        <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
-                          {summary.model || summary.provider}
-                        </span>
-                      )}
-                    </div>
+              {(() => {
+                const isLight = readerTheme === "light";
+                const isSepia = readerTheme === "sepia";
 
-                    <div className="no-print flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleGenerateSummary(true)}
-                        disabled={loadingSummary}
-                        className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer text-xs flex items-center gap-1"
-                        title="重新调用 AI 生成新的速读摘要"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${loadingSummary ? "animate-spin text-indigo-500" : ""}`} />
-                        <span className="hidden sm:inline">重新生成</span>
-                      </button>
-                      <button
-                        onClick={() => setIsSummaryCollapsed(!isSummaryCollapsed)}
-                        className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
-                        title={isSummaryCollapsed ? "展开摘要" : "折叠摘要"}
-                      >
-                        {isSummaryCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Card Body */}
-                  {!isSummaryCollapsed && (
-                    <div className="p-4 sm:p-5 space-y-4">
-                      {/* One Sentence Summary */}
+                if (summary) {
+                  return (
+                    <div
+                      id="ai-summary-card"
+                      className={`mb-8 rounded-2xl border transition-all duration-200 article-block-item print-avoid-break overflow-hidden ${
+                        !includeSummaryInPdf ? "print:hidden" : ""
+                      } ${
+                        isLight
+                          ? "bg-slate-50/90 border-slate-200/90 shadow-sm text-slate-800"
+                          : isSepia
+                          ? "bg-[#f5ebd9] border-[#dfcfba] shadow-sm text-[#3b2716]"
+                          : "bg-slate-900/90 border-indigo-500/30 shadow-lg text-slate-200"
+                      }`}
+                    >
+                      {/* Card Header */}
                       <div
-                        className={`p-3 sm:p-4 rounded-xl border text-sm sm:text-base font-semibold leading-relaxed ${
-                          readerTheme === "light"
-                            ? "bg-white border-indigo-100 text-indigo-950 shadow-sm"
-                            : readerTheme === "sepia"
-                            ? "bg-[#faf3e9] border-[#e6d8bf] text-[#3e2e1e]"
-                            : "bg-slate-950/60 border-indigo-500/20 text-indigo-200"
+                        className={`p-4 sm:p-5 pb-3 border-b flex items-center justify-between gap-3 ${
+                          isLight
+                            ? "border-slate-200/80"
+                            : isSepia
+                            ? "border-[#dfcfba]"
+                            : "border-white/10"
                         }`}
                       >
-                        <div className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1 flex items-center gap-1">
-                          <span>💡 核心结论</span>
-                        </div>
-                        <p>{summary.oneSentence}</p>
-                      </div>
-
-                      {/* Key Takeaways */}
-                      {summary.keyTakeaways && summary.keyTakeaways.length > 0 && (
-                        <div className="space-y-2">
-                          <div className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                            📌 关键要点提炼
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <div
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center shadow-sm ${
+                              isLight
+                                ? "bg-indigo-600 text-white"
+                                : isSepia
+                                ? "bg-[#7c5328] text-[#fef9f0]"
+                                : "bg-indigo-600 text-white"
+                            }`}
+                          >
+                            <Sparkles className="w-4 h-4 text-amber-300" />
                           </div>
-                          <ul className="space-y-2 text-xs sm:text-sm">
-                            {summary.keyTakeaways.map((item, idx) => (
-                              <li
-                                key={idx}
-                                className="flex items-start gap-2.5 leading-relaxed"
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-2" />
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Golden Quote */}
-                      {summary.goldenQuote && (
-                        <div
-                          className={`p-3 rounded-xl border-l-4 border-indigo-500 italic text-xs sm:text-sm ${
-                            readerTheme === "light"
-                              ? "bg-white/70 text-slate-700 border-indigo-200"
-                              : readerTheme === "sepia"
-                              ? "bg-[#faf3e9]/80 text-[#544130] border-[#d8c5ab]"
-                              : "bg-slate-950/40 text-slate-300 border-indigo-500/30"
-                          }`}
-                        >
-                          <div className="text-[11px] font-bold not-italic text-indigo-500 flex items-center gap-1 mb-1">
-                            <Quote className="w-3 h-3" />
-                            <span>精选金句</span>
-                          </div>
-                          <p className="leading-relaxed">“{summary.goldenQuote}”</p>
-                        </div>
-                      )}
-
-                      {/* Tags */}
-                      {summary.tags && summary.tags.length > 0 && (
-                        <div className="pt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                          <Tag className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                          {summary.tags.map((tag, tIdx) => (
+                          <span
+                            className={`font-bold text-sm sm:text-base tracking-tight ${
+                              isLight
+                                ? "text-slate-900"
+                                : isSepia
+                                ? "text-[#3b2716]"
+                                : "text-white"
+                            }`}
+                          >
+                            AI 智能速读 · 核心提炼 (TL;DR)
+                          </span>
+                          {(summary.model || summary.provider) && (
                             <span
-                              key={tIdx}
-                              className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
-                                readerTheme === "light"
+                              className={`text-[10px] sm:text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                                isLight
                                   ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                                  : readerTheme === "sepia"
-                                  ? "bg-[#ede2d2] text-[#4d3824] border-[#d5c2a8]"
-                                  : "bg-indigo-950/50 text-indigo-300 border-indigo-500/30"
+                                  : isSepia
+                                  ? "bg-[#ebdec9] text-[#5c3c1e] border-[#d6c2a5]"
+                                  : "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
                               }`}
                             >
-                              #{tag}
+                              {summary.model || summary.provider}
                             </span>
-                          ))}
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* Un-summarized prompt card */
-                <div
-                  id="ai-summary-card"
-                  className="no-print mb-8 rounded-2xl border border-dashed border-indigo-400/40 hover:border-indigo-500/80 bg-indigo-500/5 hover:bg-indigo-500/10 transition-all p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/20">
-                      <Sparkles className="w-4 h-4 text-amber-300" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <span>✨ AI 智能速读 · 提取核心长文摘要</span>
-                        <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
-                          TL;DR
-                        </span>
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                        一键提炼一句话核心结论、3条关键要点与金句摘录，支持 Google Gemini、OpenAI 与 Claude 模型，可随 PDF 一并导出。
-                      </p>
-                      {summaryError && (
-                        <div className="mt-2 text-xs text-rose-500 bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 flex items-center gap-1.5">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                          <span>{summaryError}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
 
-                  <button
-                    onClick={() => handleGenerateSummary(false)}
-                    disabled={loadingSummary}
-                    className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-60 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 flex items-center justify-center gap-1.5 transition shrink-0 cursor-pointer"
+                        <div className="no-print flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleGenerateSummary(true)}
+                            disabled={loadingSummary}
+                            className={`p-1.5 rounded-lg transition cursor-pointer text-xs flex items-center gap-1 ${
+                              isLight
+                                ? "text-slate-600 hover:text-indigo-600 hover:bg-slate-200/60"
+                                : isSepia
+                                ? "text-[#6e5033] hover:text-[#2d1b0c] hover:bg-[#ebdeca]"
+                                : "text-slate-400 hover:text-white hover:bg-white/10"
+                            }`}
+                            title="重新调用 AI 生成新的速读摘要"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${loadingSummary ? "animate-spin text-indigo-500" : ""}`} />
+                            <span className="hidden sm:inline font-medium">重新生成</span>
+                          </button>
+                          <button
+                            onClick={() => setIsSummaryCollapsed(!isSummaryCollapsed)}
+                            className={`p-1.5 rounded-lg transition cursor-pointer ${
+                              isLight
+                                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                                : isSepia
+                                ? "text-[#6e5033] hover:text-[#2d1b0c] hover:bg-[#ebdeca]"
+                                : "text-slate-400 hover:text-white hover:bg-white/10"
+                            }`}
+                            title={isSummaryCollapsed ? "展开摘要" : "折叠摘要"}
+                          >
+                            {isSummaryCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Card Body */}
+                      {!isSummaryCollapsed && (
+                        <div className="p-4 sm:p-5 space-y-4">
+                          {/* One Sentence Summary */}
+                          <div
+                            className={`p-3.5 sm:p-4 rounded-xl border leading-relaxed ${
+                              isLight
+                                ? "bg-white border-slate-200/90 text-slate-900 shadow-xs"
+                                : isSepia
+                                ? "bg-[#fcf7ee] border-[#dfcfba] text-[#2d1b0c] shadow-xs"
+                                : "bg-slate-950/80 border-indigo-500/25 text-slate-100"
+                            }`}
+                          >
+                            <div
+                              className={`text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1 ${
+                                isLight
+                                  ? "text-indigo-600"
+                                  : isSepia
+                                  ? "text-[#8c5722]"
+                                  : "text-indigo-400"
+                              }`}
+                            >
+                              <span>💡 核心结论</span>
+                            </div>
+                            <p className="text-sm sm:text-base font-semibold leading-relaxed">
+                              {summary.oneSentence}
+                            </p>
+                          </div>
+
+                          {/* Key Takeaways */}
+                          {summary.keyTakeaways && summary.keyTakeaways.length > 0 && (
+                            <div className="space-y-2">
+                              <div
+                                className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                                  isLight
+                                    ? "text-slate-900"
+                                    : isSepia
+                                    ? "text-[#3b2716]"
+                                    : "text-slate-200"
+                                }`}
+                              >
+                                <span>📌 关键要点提炼</span>
+                              </div>
+                              <ul className="space-y-2 text-xs sm:text-sm">
+                                {summary.keyTakeaways.map((item, idx) => {
+                                  const hasEmojiOrBullet = /^[\p{Extended_Pictographic}\u2022\u25CF\u25CB\-\*]/u.test(item.trim());
+                                  return (
+                                    <li
+                                      key={idx}
+                                      className={`flex items-start gap-2.5 leading-relaxed font-normal ${
+                                        isLight
+                                          ? "text-slate-700"
+                                          : isSepia
+                                          ? "text-[#422e1b]"
+                                          : "text-slate-300"
+                                      }`}
+                                    >
+                                      {!hasEmojiOrBullet && (
+                                        <span
+                                          className={`w-1.5 h-1.5 rounded-full shrink-0 mt-2 ${
+                                            isLight
+                                              ? "bg-indigo-500"
+                                              : isSepia
+                                              ? "bg-[#8c5722]"
+                                              : "bg-indigo-400"
+                                          }`}
+                                        />
+                                      )}
+                                      <span className="flex-1">{item}</span>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Golden Quote */}
+                          {summary.goldenQuote && (
+                            <div
+                              className={`p-3.5 rounded-xl border-l-4 border-t border-r border-b text-xs sm:text-sm ${
+                                isLight
+                                  ? "bg-white border-l-indigo-500 border-slate-200/90 text-slate-800"
+                                  : isSepia
+                                  ? "bg-[#fcf7ee] border-l-[#8c5722] border-[#dfcfba] text-[#2d1b0c]"
+                                  : "bg-slate-950/60 border-l-indigo-400 border-indigo-500/20 text-slate-200"
+                              }`}
+                            >
+                              <div
+                                className={`text-[11px] font-bold not-italic flex items-center gap-1 mb-1 ${
+                                  isLight
+                                    ? "text-indigo-600"
+                                    : isSepia
+                                    ? "text-[#8c5722]"
+                                    : "text-indigo-400"
+                                }`}
+                              >
+                                <Quote className="w-3.5 h-3.5" />
+                                <span>精选金句</span>
+                              </div>
+                              <p className="leading-relaxed font-medium italic">
+                                “{summary.goldenQuote}”
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Tags */}
+                          {summary.tags && summary.tags.length > 0 && (
+                            <div
+                              className={`pt-3 border-t flex flex-wrap items-center gap-1.5 text-xs ${
+                                isLight
+                                  ? "border-slate-200/80"
+                                  : isSepia
+                                  ? "border-[#dfcfba]"
+                                  : "border-white/10"
+                              }`}
+                            >
+                              <Tag
+                                className={`w-3.5 h-3.5 shrink-0 mr-1 ${
+                                  isLight
+                                    ? "text-indigo-600"
+                                    : isSepia
+                                    ? "text-[#8c5722]"
+                                    : "text-indigo-400"
+                                }`}
+                              />
+                              {summary.tags.map((tag, tIdx) => (
+                                <span
+                                  key={tIdx}
+                                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                                    isLight
+                                      ? "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200/80"
+                                      : isSepia
+                                      ? "bg-[#ebdec9] text-[#5c3c1e] border-[#d6c2a5]"
+                                      : "bg-indigo-950/60 text-indigo-300 border-indigo-500/30"
+                                  }`}
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                /* Un-summarized prompt card */
+                return (
+                  <div
+                    id="ai-summary-card"
+                    className={`no-print mb-8 rounded-2xl border border-dashed transition-all p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                      isLight
+                        ? "border-indigo-300 bg-indigo-50/40 hover:bg-indigo-50/70 text-slate-800"
+                        : isSepia
+                        ? "border-[#cbb294] bg-[#f5ecdd]/60 hover:bg-[#f5ecdd] text-[#3b2716]"
+                        : "border-indigo-500/40 bg-indigo-500/5 hover:bg-indigo-500/10 text-slate-200"
+                    }`}
                   >
-                    {loadingSummary ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>AI 深度解析中...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                        <span>一键提炼全文速读</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-9 h-9 rounded-xl text-white flex items-center justify-center shrink-0 shadow-md ${
+                          isLight
+                            ? "bg-gradient-to-br from-indigo-500 to-purple-600 shadow-indigo-500/20"
+                            : isSepia
+                            ? "bg-[#7c5328] shadow-[#7c5328]/20"
+                            : "bg-gradient-to-br from-indigo-500 to-purple-600 shadow-indigo-500/20"
+                        }`}
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                      </div>
+                      <div>
+                        <h4
+                          className={`text-sm font-bold flex items-center gap-2 ${
+                            isLight
+                              ? "text-slate-900"
+                              : isSepia
+                              ? "text-[#3b2716]"
+                              : "text-slate-100"
+                          }`}
+                        >
+                          <span>✨ AI 智能速读 · 提取核心长文摘要</span>
+                          <span
+                            className={`text-[10px] font-normal px-2 py-0.5 rounded-full border ${
+                              isLight
+                                ? "bg-indigo-100 text-indigo-700 border-indigo-200"
+                                : isSepia
+                                ? "bg-[#ebdec9] text-[#5c3c1e] border-[#d6c2a5]"
+                                : "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                            }`}
+                          >
+                            TL;DR
+                          </span>
+                        </h4>
+                        <p
+                          className={`text-xs mt-1 leading-relaxed ${
+                            isLight
+                              ? "text-slate-600"
+                              : isSepia
+                              ? "text-[#6e5033]"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          一键提炼一句话核心结论、3条关键要点与金句摘录，支持 Google Gemini、OpenAI 与 Claude 模型，可随 PDF 一并导出。
+                        </p>
+                        {summaryError && (
+                          <div className="mt-2 text-xs text-rose-500 bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{summaryError}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleGenerateSummary(false)}
+                      disabled={loadingSummary}
+                      className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-60 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 flex items-center justify-center gap-1.5 transition shrink-0 cursor-pointer"
+                    >
+                      {loadingSummary ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>AI 深度解析中...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          <span>一键提炼全文速读</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Cover Image */}
               {showCover && tweetData.coverImage && (
