@@ -186,7 +186,7 @@ export default function Home() {
     }
   };
 
-  // Reset and Return back to input box cleanly without occluding hero title
+  // Reset and Return back to initial input state cleanly (strictly preserves Image 2 layout)
   const handleBackToInput = () => {
     // 1. Immediately reset scroll position to the absolute top
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -198,30 +198,32 @@ export default function Home() {
     // 2. Clear parsed tweet data to return to input view
     setTweetData(null);
 
-    // 3. Ensure after React unmounts the article DOM that the viewport stays firmly at top: 0
+    // 3. Ensure after React unmounts the article DOM that the viewport stays firmly anchored at top: 0
+    // Note: Do NOT call input.select() or input.focus() here, because browser selection engines
+    // will forcefully scroll the input into view (~60px down), pushing the badge behind the header!
     requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       if (typeof document !== "undefined") {
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
       }
-
-      setTimeout(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-        if (typeof document !== "undefined") {
-          document.documentElement.scrollTop = 0;
-          document.body.scrollTop = 0;
-        }
-
-        // CRITICAL: preventScroll: true prevents the browser from auto-scrolling
-        // down to the input, which was causing the hero title above it to slide
-        // behind the sticky header!
-        if (inputRef.current) {
-          inputRef.current.focus({ preventScroll: true });
-          inputRef.current.select();
-        }
-      }, 50);
     });
+
+    setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      if (typeof document !== "undefined") {
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
+    }, 60);
+
+    setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      if (typeof document !== "undefined") {
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
+    }, 150);
   };
 
   // Scroll to top
