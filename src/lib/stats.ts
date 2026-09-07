@@ -8,11 +8,11 @@ export interface SiteStats {
   updatedAt: string;
 }
 
-// Initial realistic baseline counts
+// Baseline counts for real production data (starts strictly from 0)
 const DEFAULT_STATS: SiteStats = {
-  visits: 1286,
-  conversions: 358,
-  summaries: 132,
+  visits: 0,
+  conversions: 0,
+  summaries: 0,
   updatedAt: new Date().toISOString(),
 };
 

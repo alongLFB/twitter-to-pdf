@@ -801,12 +801,11 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
           </button>
 
           <button
-            onClick={() => setSponsorOpen(true)}
-            className="px-2.5 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 rounded-xl text-xs font-medium border border-rose-500/30 flex items-center gap-1 transition cursor-pointer"
-            title="赞赏支持作者"
+            onClick={handleScrollToTop}
+            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition cursor-pointer"
+            title="返回顶部"
           >
-            <Heart className="w-3.5 h-3.5 fill-rose-500/40 text-rose-400" />
-            <span className="hidden sm:inline">赞赏</span>
+            <ArrowUp className="w-4 h-4" />
           </button>
 
           <button
@@ -825,16 +824,18 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div
             onClick={handleBackToInput}
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group"
             title="返回首页重新输入"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-sky-500 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
-              <FileText className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-sky-500 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform shrink-0">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg text-white tracking-tight group-hover:text-indigo-200 transition-colors">X to PDF</span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-medium border border-indigo-500/30">
+                <span className="font-bold text-base sm:text-lg text-white tracking-tight group-hover:text-indigo-200 transition-colors whitespace-nowrap">
+                  X to PDF
+                </span>
+                <span className="hidden sm:inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-medium border border-indigo-500/30 whitespace-nowrap">
                   Article & Tweet
                 </span>
               </div>
@@ -846,28 +847,18 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
             {tweetData && (
               <button
                 onClick={handleBackToInput}
-                className="text-xs text-indigo-300 hover:text-white px-3 py-1.5 rounded-lg bg-indigo-950/50 hover:bg-indigo-900/60 border border-indigo-500/30 transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="text-xs text-indigo-300 hover:text-white px-3 py-1.5 rounded-lg bg-indigo-950/50 hover:bg-indigo-900/60 border border-indigo-500/30 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>返回输入链接</span>
+                <span>返回输入</span>
               </button>
             )}
-
-            {/* Sponsor button in Header */}
-            <button
-              onClick={() => setSponsorOpen(true)}
-              className="text-xs text-rose-300 hover:text-rose-100 px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-rose-950/30"
-              title="赞赏支持作者"
-            >
-              <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-400" />
-              <span>赞赏支持</span>
-            </button>
 
             <a
               href="https://github.com/alongLFB/media-downloader"
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 border border-white/10 transition-colors flex items-center gap-1.5"
+              className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 border border-white/10 transition-colors flex items-center gap-1.5 whitespace-nowrap"
             >
               <span>参考项目</span>
               <ExternalLink className="w-3 h-3" />
@@ -896,20 +887,29 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
           {/* Real-time Website Stats Index */}
           {stats && (
             <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5 text-xs text-slate-400">
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/70 border border-slate-800/90 backdrop-blur-xs">
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/70 border border-slate-800/90 backdrop-blur-xs"
+                title="全站访客累计次数（会话级真实去重）"
+              >
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-slate-400">累计访问:</span>
-                <span className="font-bold text-slate-200">{stats.visits.toLocaleString()}+ 次</span>
+                <span className="text-slate-400">全站访问:</span>
+                <span className="font-bold text-slate-200">{stats.visits.toLocaleString()} 次</span>
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/70 border border-slate-800/90 backdrop-blur-xs">
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/70 border border-slate-800/90 backdrop-blur-xs"
+                title="全站成功解析转换推文与长文篇数"
+              >
                 <span className="w-2 h-2 rounded-full bg-indigo-500" />
                 <span className="text-slate-400">长文转换:</span>
-                <span className="font-bold text-slate-200">{stats.conversions.toLocaleString()}+ 篇</span>
+                <span className="font-bold text-slate-200">{stats.conversions.toLocaleString()} 篇</span>
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/70 border border-slate-800/90 backdrop-blur-xs">
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/70 border border-slate-800/90 backdrop-blur-xs"
+                title="全站调用 AI 生成速读摘要总次数"
+              >
                 <span className="w-2 h-2 rounded-full bg-purple-500" />
                 <span className="text-slate-400">AI 深度速读:</span>
-                <span className="font-bold text-slate-200">{stats.summaries.toLocaleString()}+ 次</span>
+                <span className="font-bold text-slate-200">{stats.summaries.toLocaleString()} 次</span>
               </div>
             </div>
           )}
@@ -1974,20 +1974,6 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
           </div>
         )}
       </main>
-
-      {/* Floating Sponsor Button (Bottom-Right, non-print) */}
-      <button
-        onClick={() => setSponsorOpen(true)}
-        className="no-print fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-40 px-3.5 py-2.5 rounded-full bg-slate-900/90 hover:bg-slate-800 text-rose-300 hover:text-rose-200 border border-rose-500/40 shadow-lg shadow-rose-950/40 backdrop-blur-md transition-all transform hover:scale-105 flex items-center gap-2 cursor-pointer group"
-        title="觉得好用？请作者喝杯咖啡 ☕"
-      >
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-        </span>
-        <Heart className="w-4 h-4 text-rose-400 fill-rose-500/40 group-hover:scale-110 transition-transform" />
-        <span className="text-xs font-semibold">赞赏作者</span>
-      </button>
 
       {/* Footer */}
       <footer className="no-print border-t border-white/10 py-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
