@@ -77,16 +77,21 @@ export default function Home() {
   const [copiedNotification, setCopiedNotification] = useState<string | null>(null);
   const [showFloatingBar, setShowFloatingBar] = useState(false);
 
-  // History state initialized safely
-  const [history, setHistory] = useState<HistoryItem[]>(() => {
-    if (typeof window === "undefined") return [];
+  // History state initialized safely after mount to prevent SSR hydration mismatch
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
     try {
       const stored = localStorage.getItem("twitter_pdf_history");
-      return stored ? JSON.parse(stored) : [];
+      if (stored) {
+        setHistory(JSON.parse(stored));
+      }
     } catch {
-      return [];
+      // ignore
     }
-  });
+  }, []);
 
   // DOM Refs
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1281,7 +1286,7 @@ ${tweetData.text}
         )}
 
         {/* Recent History Section - Only shown on landing page to keep article reading clean */}
-        {!tweetData && history.length > 0 && (
+        {!tweetData && mounted && history.length > 0 && (
           <div className="no-print mt-6 glass-panel p-4 sm:p-5 rounded-2xl border border-white/10">
             <div className="flex items-center justify-between mb-3">
               <div>
