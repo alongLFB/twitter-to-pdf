@@ -24,7 +24,7 @@ echo "⏳ 等待服务启动中..."
 sleep 3
 
 # 4. 检查容器状态
-HOST_PORT=${APP_PORT:-3025}
+HOST_PORT=${APP_PORT:-3032}
 if docker ps | grep -q "twitter-to-pdf"; then
     echo "✅ 容器已成功在后台运行！本地监听端口: 127.0.0.1:$HOST_PORT"
     docker ps --filter "name=twitter-to-pdf" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

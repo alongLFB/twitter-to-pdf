@@ -105,8 +105,8 @@ jobs:
               docker image prune -f
 
               # 自动化健康检查轮询
-              APP_PORT_CHECK=$(grep -E '^APP_PORT=' .env 2>/dev/null | cut -d '=' -f2 || echo "3025")
-              APP_PORT_CHECK=${APP_PORT_CHECK:-3025}
+              APP_PORT_CHECK=$(grep -E '^APP_PORT=' .env 2>/dev/null | cut -d '=' -f2 || echo "3032")
+              APP_PORT_CHECK=${APP_PORT_CHECK:-3032}
               echo "==> 正在验证服务健康状态 (http://127.0.0.1:$APP_PORT_CHECK/api/health)..."
               for i in {1..15}; do
                 if curl -s "http://127.0.0.1:$APP_PORT_CHECK/api/health" | grep -q "ok" 2>/dev/null; then
