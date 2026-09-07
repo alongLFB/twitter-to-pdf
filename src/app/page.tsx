@@ -129,20 +129,28 @@ export default function Home() {
       })
       .catch(() => {});
 
-    // Track visit once per browser session
+    // Track legitimate page visits with a 60-second client-side debounce
+    // Allows different users / devices on the same link to count independently,
+    // while preventing a single user from spamming reloads/F5.
     try {
-      if (typeof window !== "undefined" && !sessionStorage.getItem("visited_x2pdf")) {
-        sessionStorage.setItem("visited_x2pdf", "1");
-        axios
-          .post<{ success: boolean; data: { visits: number; conversions: number; summaries: number } }>("/api/stats", {
-            action: "visit",
-          })
-          .then((res) => {
-            if (res.data.success && res.data.data) {
-              setStats(res.data.data);
-            }
-          })
-          .catch(() => {});
+      if (typeof window !== "undefined") {
+        const now = Date.now();
+        const LAST_VISIT_KEY = "x2pdf_last_visit_ts";
+        const lastVisit = Number(sessionStorage.getItem(LAST_VISIT_KEY) || 0);
+
+        if (now - lastVisit > 60 * 1000) {
+          sessionStorage.setItem(LAST_VISIT_KEY, String(now));
+          axios
+            .post<{ success: boolean; data: { visits: number; conversions: number; summaries: number } }>("/api/stats", {
+              action: "visit",
+            })
+            .then((res) => {
+              if (res.data.success && res.data.data) {
+                setStats(res.data.data);
+              }
+            })
+            .catch(() => {});
+        }
       }
     } catch {
       // ignore
