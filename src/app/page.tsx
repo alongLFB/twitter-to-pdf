@@ -35,6 +35,7 @@ import {
   ChevronDown,
   ChevronUp,
   Share2,
+  Image as ImageIcon,
 } from "lucide-react";
 import { ParsedTweet, ParseResponse, ArticleSummary, SummarizeResponse } from "@/types/tweet";
 import { SponsorModal } from "@/components/SponsorModal";
@@ -93,6 +94,8 @@ export default function Home() {
   const [summaryCooldown, setSummaryCooldown] = useState(0);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedShareUrl, setCopiedShareUrl] = useState(false);
+  const [copyingSummaryImage, setCopyingSummaryImage] = useState(false);
+  const [copiedSummaryImage, setCopiedSummaryImage] = useState(false);
 
   // Sponsor Modal state
   const [sponsorOpen, setSponsorOpen] = useState(false);
@@ -306,6 +309,76 @@ export default function Home() {
       });
     } catch {
       showToast("复制失败，请手动复制浏览器地址栏");
+    }
+  };
+
+  const handleCopySummaryImage = async () => {
+    if (!summary || !tweetData) return;
+    const card = document.getElementById("ai-summary-card");
+    if (!card) return;
+
+    setCopyingSummaryImage(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+
+      // Expand card if it was collapsed before snapshot
+      const wasCollapsed = isSummaryCollapsed;
+      if (wasCollapsed) {
+        setIsSummaryCollapsed(false);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      const canvas = await html2canvas(card, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: readerTheme === "light" ? "#f8fafc" : readerTheme === "sepia" ? "#f5ebd9" : "#0f172a",
+        ignoreElements: (element) => element.classList.contains("no-print"),
+      });
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          showToast("生成总结图片失败，请稍后重试");
+          setCopyingSummaryImage(false);
+          return;
+        }
+
+        try {
+          if (navigator.clipboard && window.ClipboardItem) {
+            const item = new ClipboardItem({ "image/png": blob });
+            await navigator.clipboard.write([item]);
+            setCopiedSummaryImage(true);
+            showToast("🖼️ AI 总结卡片图片已复制到剪贴板！可直接在微信/聊天框粘贴发送");
+            setTimeout(() => setCopiedSummaryImage(false), 2500);
+          } else {
+            // Fallback: direct download
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            const safeTitle = (tweetData.title || "ai-summary").replace(/[/\\?%*:|"<>]/g, "_").slice(0, 20);
+            a.download = `AI速读总结_${safeTitle}.png`;
+            a.click();
+            URL.revokeObjectURL(blobUrl);
+            showToast("已生成并下载 AI 总结长图！");
+          }
+        } catch (clipErr) {
+          console.warn("ClipboardItem write failed, fallback to download:", clipErr);
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          const safeTitle = (tweetData.title || "ai-summary").replace(/[/\\?%*:|"<>]/g, "_").slice(0, 20);
+          a.download = `AI速读总结_${safeTitle}.png`;
+          a.click();
+          URL.revokeObjectURL(blobUrl);
+          showToast("已自动保存 AI 总结卡片图片至下载目录！");
+        } finally {
+          setCopyingSummaryImage(false);
+        }
+      }, "image/png");
+    } catch (err) {
+      console.error("Copy summary image failed:", err);
+      showToast("生成图片失败，请重试");
+      setCopyingSummaryImage(false);
     }
   };
 
@@ -1549,28 +1622,6 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                         </div>
 
                         <div className="no-print flex items-center gap-1.5">
-                          {/* Copy Summary for Quick Social Share */}
-                          <button
-                            onClick={handleCopySummary}
-                            className={`px-2 py-1 rounded-lg transition cursor-pointer text-xs flex items-center gap-1 font-medium ${
-                              copiedSummary
-                                ? "text-emerald-700 bg-emerald-50 border border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-500/40"
-                                : isLight
-                                ? "text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
-                                : isSepia
-                                ? "text-[#5c3c1e] bg-[#ebdec9] hover:bg-[#dfcfba] border border-[#d6c2a5]"
-                                : "text-indigo-300 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30"
-                            }`}
-                            title="一键复制 AI 提炼文案，便于直接粘贴分享给微信/社交好友"
-                          >
-                            {copiedSummary ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                            <span>{copiedSummary ? "已复制" : "复制总结"}</span>
-                          </button>
-
                           <button
                             onClick={() => handleGenerateSummary(true)}
                             disabled={loadingSummary || summaryCooldown > 0}
@@ -1748,6 +1799,22 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                             </div>
                           )}
 
+                          {/* Card Source Attribution (captured in snapshot image) */}
+                          <div
+                            className={`pt-3 border-t flex flex-wrap items-center justify-between gap-2 text-[11px] opacity-65 ${
+                              isLight
+                                ? "border-slate-200 text-slate-500"
+                                : isSepia
+                                ? "border-[#dfcfba] text-[#7a5839]"
+                                : "border-white/10 text-slate-400"
+                            }`}
+                          >
+                            <span className="truncate max-w-[260px]">
+                              {tweetData.author.name} (@{tweetData.author.screen_name})
+                            </span>
+                            <span>由 X to PDF 智能提炼 · x2pdf.alonglfb.com</span>
+                          </div>
+
                           {/* Quick Share Action at bottom of summary */}
                           <div
                             className={`no-print pt-3 border-t flex flex-wrap items-center justify-between gap-2 text-xs ${
@@ -1759,27 +1826,58 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                             }`}
                           >
                             <span className="text-[11px] opacity-80">
-                              💡 觉得总结有用？可复制整段提炼文案直接粘贴发给微信或社交好友
+                              💡 觉得总结有用？可复制整段提炼文案或卡片长图直接发给微信好友
                             </span>
-                            <button
-                              onClick={handleCopySummary}
-                              className={`px-3 py-1.5 rounded-lg transition cursor-pointer text-xs flex items-center gap-1.5 font-medium shadow-xs ${
-                                copiedSummary
-                                  ? "text-emerald-700 bg-emerald-50 border border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-500/40"
-                                  : isLight
-                                  ? "text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
-                                  : isSepia
-                                  ? "text-[#5c3c1e] bg-[#ebdec9] hover:bg-[#dfcfba] border border-[#d6c2a5]"
-                                  : "text-indigo-300 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30"
-                              }`}
-                            >
-                              {copiedSummary ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
-                              )}
-                              <span>{copiedSummary ? "已复制到剪贴板！" : "复制 AI 总结文案"}</span>
-                            </button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Copy Summary Image Button */}
+                              <button
+                                onClick={handleCopySummaryImage}
+                                disabled={copyingSummaryImage}
+                                className={`px-3 py-1.5 rounded-lg transition cursor-pointer text-xs flex items-center gap-1.5 font-medium shadow-xs disabled:opacity-50 ${
+                                  copiedSummaryImage
+                                    ? "text-emerald-700 bg-emerald-50 border border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-500/40"
+                                    : isLight
+                                    ? "text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200"
+                                    : isSepia
+                                    ? "text-[#4a3520] bg-[#e3d3bd] hover:bg-[#d8c5ac] border border-[#cbbb9f]"
+                                    : "text-sky-300 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30"
+                                }`}
+                                title="将本速读卡片一键生成高清图片并直接复制到剪贴板，可直接在微信/聊天窗口按 Ctrl+V 粘贴"
+                              >
+                                {copyingSummaryImage ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                                ) : copiedSummaryImage ? (
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                ) : (
+                                  <ImageIcon className="w-3.5 h-3.5" />
+                                )}
+                                <span>
+                                  {copyingSummaryImage ? "正在生成图片..." : copiedSummaryImage ? "图片已复制到剪贴板！" : "复制 AI 总结图片"}
+                                </span>
+                              </button>
+
+                              {/* Copy Summary Text Button */}
+                              <button
+                                onClick={handleCopySummary}
+                                className={`px-3 py-1.5 rounded-lg transition cursor-pointer text-xs flex items-center gap-1.5 font-medium shadow-xs ${
+                                  copiedSummary
+                                    ? "text-emerald-700 bg-emerald-50 border border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-500/40"
+                                    : isLight
+                                    ? "text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
+                                    : isSepia
+                                    ? "text-[#5c3c1e] bg-[#ebdec9] hover:bg-[#dfcfba] border border-[#d6c2a5]"
+                                    : "text-indigo-300 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30"
+                                }`}
+                                title="一键复制格式化速读总结文案（含专属阅读链接）"
+                              >
+                                {copiedSummary ? (
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                                <span>{copiedSummary ? "文案已复制到剪贴板！" : "复制 AI 总结文案"}</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
