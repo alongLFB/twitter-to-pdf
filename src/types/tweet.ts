@@ -43,3 +43,19 @@ export interface ParseResponse {
   data?: ParsedTweet;
   error?: string;
 }
+
+export interface ArticleSummary {
+  oneSentence: string;
+  keyTakeaways: string[];
+  goldenQuote?: string;
+  tags: string[];
+  provider?: string;
+  model?: string;
+}
+
+export interface SummarizeResponse {
+  success: boolean;
+  data?: ArticleSummary;
+  error?: string;
+}
+

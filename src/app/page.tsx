@@ -29,8 +29,13 @@ import {
   ArrowLeft,
   ArrowUp,
   HelpCircle,
+  Bot,
+  Quote,
+  Tag,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import { ParsedTweet, ParseResponse } from "@/types/tweet";
+import { ParsedTweet, ParseResponse, ArticleSummary, SummarizeResponse } from "@/types/tweet";
 
 const DEMO_LINKS = [
   {
@@ -76,6 +81,13 @@ export default function Home() {
   const [downloadProgress, setDownloadProgress] = useState("");
   const [copiedNotification, setCopiedNotification] = useState<string | null>(null);
   const [showFloatingBar, setShowFloatingBar] = useState(false);
+
+  // AI Summary states
+  const [summary, setSummary] = useState<ArticleSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(false);
+  const [includeSummaryInPdf, setIncludeSummaryInPdf] = useState(true);
 
   // History state initialized safely after mount to prevent SSR hydration mismatch
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -143,6 +155,41 @@ export default function Home() {
     showToast("已清空浏览器本地存储的转换历史记录");
   };
 
+  const handleGenerateSummary = async (forceRefresh = false) => {
+    if (!tweetData) return;
+    setLoadingSummary(true);
+    setSummaryError(null);
+
+    try {
+      const res = await axios.post<SummarizeResponse>("/api/summarize", {
+        text: tweetData.text,
+        title: tweetData.title,
+        author: `${tweetData.author.name} (@${tweetData.author.screen_name})`,
+        tweetId: tweetData.id,
+        forceRefresh,
+      });
+
+      if (res.data.success && res.data.data) {
+        setSummary(res.data.data);
+        setIsSummaryCollapsed(false);
+        showToast("✨ AI 智能速读摘要已生成！");
+      } else {
+        setSummaryError(res.data.error || "生成摘要失败，请检查服务器 AI 配置");
+      }
+    } catch (err: unknown) {
+      console.error("Generate summary error:", err);
+      if (axios.isAxiosError(err)) {
+        setSummaryError(err.response?.data?.error || err.message || "请求 AI 接口失败，请检查网络或 API 配置");
+      } else if (err instanceof Error) {
+        setSummaryError(err.message);
+      } else {
+        setSummaryError("生成摘要时出现未知错误");
+      }
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
+
   const handleParse = async (targetUrl?: string) => {
     const inputUrl = targetUrl || url;
     if (!inputUrl.trim()) {
@@ -152,6 +199,9 @@ export default function Home() {
 
     setLoading(true);
     setError("");
+    setSummary(null);
+    setSummaryError(null);
+    setLoadingSummary(false);
 
     try {
       const res = await axios.post<ParseResponse>("/api/parse", { url: inputUrl.trim() });
@@ -204,6 +254,9 @@ export default function Home() {
     // 2. Clear parsed tweet data and error to return to clean input view
     setTweetData(null);
     setError("");
+    setSummary(null);
+    setSummaryError(null);
+    setLoadingSummary(false);
 
     // 3. Ensure after React unmounts the article DOM that the viewport stays firmly anchored at top: 0
     requestAnimationFrame(() => {
@@ -343,6 +396,65 @@ export default function Home() {
         </div>
       `;
       elementsToLayout.push(docHeader);
+
+      // 1.5 AI Summary Card for PDF (if enabled and available)
+      if (includeSummaryInPdf && summary) {
+        const summaryDiv = document.createElement("div");
+        summaryDiv.style.marginBottom = "20px";
+        summaryDiv.style.padding = "14px 18px";
+        summaryDiv.style.borderRadius = "8px";
+        summaryDiv.style.background = "#f8fafc";
+        summaryDiv.style.border = "1px solid #e2e8f0";
+        summaryDiv.style.borderLeft = "4px solid #6366f1";
+
+        let keyPointsHtml = "";
+        if (summary.keyTakeaways && summary.keyTakeaways.length > 0) {
+          keyPointsHtml = `
+            <div style="margin-top: 8px; font-size: 11.5px; line-height: 1.55; color: #334155;">
+              <strong style="color: #1e293b; font-size: 11.5px; display: block; margin-bottom: 3px;">📌 核心要点速览：</strong>
+              <ul style="margin: 0; padding-left: 18px;">
+                ${summary.keyTakeaways.map((point) => `<li style="margin-bottom: 3px;">${point}</li>`).join("")}
+              </ul>
+            </div>
+          `;
+        }
+
+        let quoteHtml = "";
+        if (summary.goldenQuote) {
+          quoteHtml = `
+            <div style="margin-top: 8px; padding: 6px 12px; background: #ffffff; border-left: 3px solid #818cf8; border-radius: 4px; font-style: italic; font-size: 11px; color: #475569;">
+              💬 "${summary.goldenQuote}"
+            </div>
+          `;
+        }
+
+        let tagsHtml = "";
+        if (summary.tags && summary.tags.length > 0) {
+          tagsHtml = `
+            <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+              ${summary.tags.map((tag) => `<span style="font-size: 9.5px; background: #e0e7ff; color: #4338ca; padding: 1px 7px; border-radius: 9999px;">#${tag}</span>`).join("")}
+            </div>
+          `;
+        }
+
+        summaryDiv.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 12.5px; font-weight: 700; color: #4338ca;">
+              ✨ AI 智能速读 · 核心提炼 (TL;DR)
+            </span>
+            <span style="font-size: 9.5px; background: #ede9fe; color: #6d28d9; padding: 2px 7px; border-radius: 9999px; font-weight: 600;">
+              ${summary.model || summary.provider || "AI Generated"}
+            </span>
+          </div>
+          <div style="font-size: 12px; font-weight: 600; line-height: 1.55; color: #0f172a; background: #ffffff; padding: 7px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            💡 ${summary.oneSentence}
+          </div>
+          ${keyPointsHtml}
+          ${quoteHtml}
+          ${tagsHtml}
+        `;
+        elementsToLayout.push(summaryDiv);
+      }
 
       // 2. Cover image (if enabled)
       if (showCover && tweetData.coverImage) {
@@ -531,8 +643,16 @@ reading_time: "${tweetData.readingTime} min"
 > **原文**：${tweetData.url}  
 > **发布日期**：${new Date(tweetData.createdAt).toLocaleString("zh-CN")}
 
-${tweetData.coverImage ? `![封面图片](${tweetData.coverImage})\n\n` : ""}
-${tweetData.text}
+${includeSummaryInPdf && summary ? `> [!NOTE]
+> **💡 AI 核心速读 (TL;DR)**：${summary.oneSentence}
+> 
+> **📌 核心要点**：
+${summary.keyTakeaways.map(t => `> - ${t}`).join("\n")}
+${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` : ""}${summary.tags && summary.tags.length > 0 ? `\n>\n> **🏷️ 标签**：${summary.tags.map(t => `#${t}`).join(" ")}` : ""}
+
+---
+
+` : ""}${tweetData.coverImage ? `![封面图片](${tweetData.coverImage})\n\n` : ""}${tweetData.text}
 `;
 
     const blob = new Blob([frontmatter], { type: "text/markdown;charset=utf-8" });
@@ -868,6 +988,27 @@ ${tweetData.text}
                     <Copy className="w-4 h-4 text-amber-400" />
                     <span>复制全文</span>
                   </button>
+
+                  {/* AI Summary Quick Trigger / Scroll Button */}
+                  <button
+                    onClick={() => {
+                      if (!summary) {
+                        handleGenerateSummary(false);
+                      } else {
+                        document.getElementById("ai-summary-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }
+                    }}
+                    disabled={loadingSummary}
+                    className="px-3.5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md shadow-purple-500/20 flex items-center gap-1.5 transition cursor-pointer"
+                    title={summary ? "跳转查看 AI 速读总结" : "一键由 AI 分析提炼核心要点与 TL;DR 速读"}
+                  >
+                    {loadingSummary ? (
+                      <RefreshCw className="w-4 h-4 animate-spin text-purple-200" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                    )}
+                    <span>{loadingSummary ? "AI 正在分析..." : summary ? "查看 AI 速读" : "✨ AI 智能速读"}</span>
+                  </button>
                 </div>
 
                 <a
@@ -1021,6 +1162,19 @@ ${tweetData.text}
                     />
                     <span>显示互动数据</span>
                   </label>
+
+                  {/* Toggle Include AI Summary */}
+                  {summary && (
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-indigo-300 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={includeSummaryInPdf}
+                        onChange={(e) => setIncludeSummaryInPdf(e.target.checked)}
+                        className="rounded border-slate-700 text-indigo-600 focus:ring-0 bg-slate-900"
+                      />
+                      <span>包含 AI 总结</span>
+                    </label>
+                  )}
                 </div>
               </div>
             </div>
@@ -1106,6 +1260,186 @@ ${tweetData.text}
                   </div>
                 )}
               </div>
+
+              {/* AI Article Summary Card */}
+              {summary ? (
+                <div
+                  id="ai-summary-card"
+                  className={`mb-8 rounded-2xl border transition-all duration-200 article-block-item print-avoid-break overflow-hidden ${
+                    !includeSummaryInPdf ? "print:hidden" : ""
+                  } ${
+                    readerTheme === "light"
+                      ? "bg-gradient-to-br from-indigo-50/90 via-slate-50 to-purple-50/60 border-indigo-200/80 text-slate-800 shadow-sm"
+                      : readerTheme === "sepia"
+                      ? "bg-[#f5ecdf] border-[#dac8af] text-[#433120] shadow-sm"
+                      : "bg-slate-900/80 border-indigo-500/30 text-slate-200 shadow-lg"
+                  }`}
+                >
+                  {/* Card Header */}
+                  <div className="p-4 sm:p-5 pb-3 border-b border-black/5 dark:border-white/5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                      </div>
+                      <span className="font-bold text-sm sm:text-base tracking-tight text-indigo-950 dark:text-indigo-200">
+                        AI 智能速读 · 核心提炼 (TL;DR)
+                      </span>
+                      {(summary.model || summary.provider) && (
+                        <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                          {summary.model || summary.provider}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="no-print flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleGenerateSummary(true)}
+                        disabled={loadingSummary}
+                        className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer text-xs flex items-center gap-1"
+                        title="重新调用 AI 生成新的速读摘要"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loadingSummary ? "animate-spin text-indigo-500" : ""}`} />
+                        <span className="hidden sm:inline">重新生成</span>
+                      </button>
+                      <button
+                        onClick={() => setIsSummaryCollapsed(!isSummaryCollapsed)}
+                        className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
+                        title={isSummaryCollapsed ? "展开摘要" : "折叠摘要"}
+                      >
+                        {isSummaryCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  {!isSummaryCollapsed && (
+                    <div className="p-4 sm:p-5 space-y-4">
+                      {/* One Sentence Summary */}
+                      <div
+                        className={`p-3 sm:p-4 rounded-xl border text-sm sm:text-base font-semibold leading-relaxed ${
+                          readerTheme === "light"
+                            ? "bg-white border-indigo-100 text-indigo-950 shadow-sm"
+                            : readerTheme === "sepia"
+                            ? "bg-[#faf3e9] border-[#e6d8bf] text-[#3e2e1e]"
+                            : "bg-slate-950/60 border-indigo-500/20 text-indigo-200"
+                        }`}
+                      >
+                        <div className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1 flex items-center gap-1">
+                          <span>💡 核心结论</span>
+                        </div>
+                        <p>{summary.oneSentence}</p>
+                      </div>
+
+                      {/* Key Takeaways */}
+                      {summary.keyTakeaways && summary.keyTakeaways.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                            📌 关键要点提炼
+                          </div>
+                          <ul className="space-y-2 text-xs sm:text-sm">
+                            {summary.keyTakeaways.map((item, idx) => (
+                              <li
+                                key={idx}
+                                className="flex items-start gap-2.5 leading-relaxed"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-2" />
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Golden Quote */}
+                      {summary.goldenQuote && (
+                        <div
+                          className={`p-3 rounded-xl border-l-4 border-indigo-500 italic text-xs sm:text-sm ${
+                            readerTheme === "light"
+                              ? "bg-white/70 text-slate-700 border-indigo-200"
+                              : readerTheme === "sepia"
+                              ? "bg-[#faf3e9]/80 text-[#544130] border-[#d8c5ab]"
+                              : "bg-slate-950/40 text-slate-300 border-indigo-500/30"
+                          }`}
+                        >
+                          <div className="text-[11px] font-bold not-italic text-indigo-500 flex items-center gap-1 mb-1">
+                            <Quote className="w-3 h-3" />
+                            <span>精选金句</span>
+                          </div>
+                          <p className="leading-relaxed">“{summary.goldenQuote}”</p>
+                        </div>
+                      )}
+
+                      {/* Tags */}
+                      {summary.tags && summary.tags.length > 0 && (
+                        <div className="pt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                          <Tag className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                          {summary.tags.map((tag, tIdx) => (
+                            <span
+                              key={tIdx}
+                              className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                                readerTheme === "light"
+                                  ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                  : readerTheme === "sepia"
+                                  ? "bg-[#ede2d2] text-[#4d3824] border-[#d5c2a8]"
+                                  : "bg-indigo-950/50 text-indigo-300 border-indigo-500/30"
+                              }`}
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Un-summarized prompt card */
+                <div
+                  id="ai-summary-card"
+                  className="no-print mb-8 rounded-2xl border border-dashed border-indigo-400/40 hover:border-indigo-500/80 bg-indigo-500/5 hover:bg-indigo-500/10 transition-all p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/20">
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <span>✨ AI 智能速读 · 提取核心长文摘要</span>
+                        <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+                          TL;DR
+                        </span>
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        一键提炼一句话核心结论、3条关键要点与金句摘录，支持 Google Gemini、OpenAI 与 Claude 模型，可随 PDF 一并导出。
+                      </p>
+                      {summaryError && (
+                        <div className="mt-2 text-xs text-rose-500 bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{summaryError}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleGenerateSummary(false)}
+                    disabled={loadingSummary}
+                    className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-60 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 flex items-center justify-center gap-1.5 transition shrink-0 cursor-pointer"
+                  >
+                    {loadingSummary ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>AI 深度解析中...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>一键提炼全文速读</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
 
               {/* Cover Image */}
               {showCover && tweetData.coverImage && (
