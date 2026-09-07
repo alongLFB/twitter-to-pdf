@@ -6,13 +6,14 @@ services:
     container_name: twitter-to-pdf
     restart: always
     ports:
-      - "127.0.0.1:3000:3000"
+      # 绑定至 127.0.0.1，避免公网直通，默认端口改为 3025 避免与现有应用冲突
+      - "127.0.0.1:${APP_PORT:-3025}:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3

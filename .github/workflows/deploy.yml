@@ -1,0 +1,123 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: '强制重新构建 Docker 镜像 (即使未检测到源码改动)'
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy Twitter to PDF
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+          FORCE_BUILD: ${{ github.event.inputs.force_build || 'false' }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          command_timeout: 30m
+          envs: ENV_FILE,FORCE_BUILD
+          script: |
+            set -euo pipefail
+
+            # 1. 锁定 GitHub 官方骨干 IP（防止甲骨文/海外 VPS DNS 解析到不稳定节点）
+            if ! grep -q "140.82.112.3 github.com" /etc/hosts 2>/dev/null; then
+              sudo sed -i '/github.com/d' /etc/hosts 2>/dev/null || true
+              echo "140.82.112.3 github.com" | sudo tee -a /etc/hosts >/dev/null
+            fi
+
+            mkdir -p ~/github
+            cd ~/github
+
+            # 2. 获取或更新最新代码（带 30 秒超时与自动重试）
+            APP_DIR="twitter-to-pdf"
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+
+            if [ ! -d "$APP_DIR" ]; then
+              for i in {1..3}; do
+                timeout 30s git clone "$REPO_URL" "$APP_DIR" && break || { echo "Clone retry ($i/3)..."; sleep 2; }
+              done
+            fi
+            cd "$APP_DIR"
+
+            # 记录本次拉取前的 commit hash
+            OLD_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
+
+            CURRENT_BRANCH="${{ github.ref_name }}"
+
+            for i in {1..3}; do
+              timeout 30s git fetch origin "$CURRENT_BRANCH" && break || { echo "Fetch retry ($i/3)..."; sleep 2; }
+            done
+            git reset --hard "origin/$CURRENT_BRANCH"
+            NEW_HEAD=$(git rev-parse HEAD)
+
+            # 3. 同步环境变量（若 GitHub Secrets 配置了 ENV_FILE）
+            if [ -n "${ENV_FILE:-}" ]; then
+              printf "%s\n" "$ENV_FILE" > .env
+            fi
+
+            # 4. 智能判断是否需要重新构建 Docker 镜像 (按需构建，节省服务器资源)
+            SHOULD_BUILD=false
+            if [ "${FORCE_BUILD:-false}" = "true" ]; then
+              echo "==> [Trigger] 手动触发部署且指定了强制构建 (force_build=true)"
+              SHOULD_BUILD=true
+            elif [ -z "$OLD_HEAD" ]; then
+              echo "==> [Trigger] 首次部署，触发完整构建"
+              SHOULD_BUILD=true
+            elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
+              echo "==> [Trigger] 代码无新提交，当前版本已是最新 ($NEW_HEAD)"
+            else
+              CHANGED_FILES=$(git diff --name-only "$OLD_HEAD" "$NEW_HEAD" 2>/dev/null || echo "")
+              echo "==> 本次提交变更的文件列表 ($OLD_HEAD..$NEW_HEAD):"
+              echo "$CHANGED_FILES"
+
+              # 仅当改动涉及前端源码、静态资源、依赖项或容器配置文件时才重新构建
+              if echo "$CHANGED_FILES" | grep -qE '^(src/|public/|package\.json|package-lock\.json|Dockerfile|docker-compose\.yml|compose\.yaml|next\.config|tsconfig|tailwind|postcss)'; then
+                echo "==> [Check] 检测到核心源码或容器配置变更，需要重新构建 Docker 镜像！"
+                SHOULD_BUILD=true
+              fi
+            fi
+
+            # 5. 执行按需构建与平滑重启 (1-2s 无缝切换)
+            if [ "$SHOULD_BUILD" = "true" ]; then
+              echo "==> 正在后台构建新 Docker 镜像 (旧容器继续对外服务)..."
+              docker compose build
+
+              echo "==> 原子级无缝替换容器 (1-2s 极速切换)..."
+              docker compose up -d --no-deps twitter-to-pdf
+              docker image prune -f
+
+              # 自动化健康检查轮询
+              APP_PORT_CHECK=$(grep -E '^APP_PORT=' .env 2>/dev/null | cut -d '=' -f2 || echo "3025")
+              APP_PORT_CHECK=${APP_PORT_CHECK:-3025}
+              echo "==> 正在验证服务健康状态 (http://127.0.0.1:$APP_PORT_CHECK/api/health)..."
+              for i in {1..15}; do
+                if curl -s "http://127.0.0.1:$APP_PORT_CHECK/api/health" | grep -q "ok" 2>/dev/null; then
+                  echo "✅ 健康检查通过！twitter-to-pdf 服务正常运行并对外提供服务。"
+                  break
+                fi
+                echo "等待应用启动就绪 ($i/15)..."
+                sleep 2
+              done
+              echo "==> twitter-to-pdf 部署圆满完成！"
+            else
+              echo "==> ⚡ 本次仅改动了文档、Nginx配置或辅助脚本，无需重建镜像！"
+              echo "==> 远端代码已秒级同步至最新版本 ($NEW_HEAD)，旧容器保持零中断运行！"
+            fi
