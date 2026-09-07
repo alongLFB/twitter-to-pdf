@@ -564,6 +564,7 @@ export default function Home() {
       const res = await axios.post<ParseResponse>("/api/parse", { url: inputUrl.trim() });
       if (res.data.success && res.data.data) {
         setTweetData(res.data.data);
+        setUrl(res.data.data.url); // Restore full original Twitter URL in the input box
         saveToHistory(res.data.data);
         // Real-time update conversions stat counter
         setStats((prev) => (prev ? { ...prev, conversions: prev.conversions + 1 } : null));
@@ -692,7 +693,8 @@ export default function Home() {
     const parseFromUrl = () => {
       const target = extractTargetFromLocation();
       if (target) {
-        setUrl(target);
+        const displayUrl = /^\d{1,25}$/.test(target) ? `https://x.com/i/status/${target}` : target;
+        setUrl(displayUrl);
         handleParse(target);
       } else {
         setTweetData(null);
@@ -704,7 +706,8 @@ export default function Home() {
     // Check on initial mount
     const initialTarget = extractTargetFromLocation();
     if (initialTarget) {
-      setUrl(initialTarget);
+      const displayUrl = /^\d{1,25}$/.test(initialTarget) ? `https://x.com/i/status/${initialTarget}` : initialTarget;
+      setUrl(displayUrl);
       handleParse(initialTarget);
     }
 

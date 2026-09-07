@@ -154,7 +154,9 @@ export async function POST(req: NextRequest) {
             const wordCount = calculateWordCount(rawText);
             const parsed: ParsedTweet = {
               id: tweetId,
-              url: `https://x.com/i/status/${tweetId}`,
+              url: d.user?.screen_name
+                ? `https://x.com/${d.user.screen_name}/status/${tweetId}`
+                : `https://x.com/i/status/${tweetId}`,
               isArticle: !!d.article,
               title: d.article?.title || (rawText.slice(0, 40) + "..."),
               coverImage: d.article?.cover_media?.media_info?.original_img_url || null,
@@ -363,9 +365,14 @@ export async function POST(req: NextRequest) {
     const wordCount = calculateWordCount(fullText || title);
     const readingTime = Math.max(1, Math.ceil(wordCount / 350));
 
+    const authorScreen = tweet.author?.screen_name;
+    const canonicalUrl = authorScreen
+      ? `https://x.com/${authorScreen}/status/${tweetId}`
+      : (tweet.url || `https://x.com/i/status/${tweetId}`).replace("twitter.com", "x.com");
+
     const parsedTweet: ParsedTweet = {
       id: tweet.id || tweetId,
-      url: tweet.url || `https://x.com/${tweet.author?.screen_name || "i"}/status/${tweetId}`,
+      url: canonicalUrl,
       isArticle,
       title,
       coverImage,
