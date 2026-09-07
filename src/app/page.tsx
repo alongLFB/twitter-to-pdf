@@ -90,6 +90,7 @@ export default function Home() {
   const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(false);
   const [includeSummaryInPdf, setIncludeSummaryInPdf] = useState(true);
   const [summaryCooldown, setSummaryCooldown] = useState(0);
+  const [copiedSummary, setCopiedSummary] = useState(false);
 
   // Sponsor Modal state
   const [sponsorOpen, setSponsorOpen] = useState(false);
@@ -247,6 +248,44 @@ export default function Home() {
       }
     } finally {
       setLoadingSummary(false);
+    }
+  };
+
+  const handleCopySummary = () => {
+    if (!summary) return;
+
+    let text = `📝 【AI 速读提炼】${tweetData?.title || "Twitter 长文精读"}\n\n`;
+    text += `💡 核心总结：\n${summary.oneSentence}\n\n`;
+
+    if (summary.keyTakeaways && summary.keyTakeaways.length > 0) {
+      text += `📌 核心要点：\n`;
+      summary.keyTakeaways.forEach((item, idx) => {
+        text += `${idx + 1}. ${item}\n`;
+      });
+      text += `\n`;
+    }
+
+    if (summary.goldenQuote) {
+      text += `💬 精选金句：\n“${summary.goldenQuote}”\n\n`;
+    }
+
+    if (summary.tags && summary.tags.length > 0) {
+      text += `🏷️ 关键词：${summary.tags.map((t) => `#${t}`).join(" ")}\n\n`;
+    }
+
+    if (tweetData?.url) {
+      text += `🔗 原文链接：${tweetData.url}\n`;
+    }
+    text += `— 由 X to PDF 智能提炼导出`;
+
+    try {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopiedSummary(true);
+        showToast("📋 AI 总结文案已复制，可直接粘贴分享给好友！");
+        setTimeout(() => setCopiedSummary(false), 2500);
+      });
+    } catch {
+      showToast("复制失败，请手动选取文本复制");
     }
   };
 
@@ -1248,14 +1287,17 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                   )}
 
                   {/* Toggle Stats */}
-                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <label
+                    className="flex items-center gap-1.5 cursor-pointer select-none"
+                    title="在正文顶部显示/隐藏推文的点赞、转推、书签与阅读量等社交媒体热度数据"
+                  >
                     <input
                       type="checkbox"
                       checked={showStats}
                       onChange={(e) => setShowStats(e.target.checked)}
                       className="rounded border-slate-700 text-indigo-600 focus:ring-0 bg-slate-900"
                     />
-                    <span>显示互动数据</span>
+                    <span>保留社交热度指标</span>
                   </label>
 
                   {/* Toggle Include AI Summary */}
@@ -1424,6 +1466,28 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                         </div>
 
                         <div className="no-print flex items-center gap-1.5">
+                          {/* Copy Summary for Quick Social Share */}
+                          <button
+                            onClick={handleCopySummary}
+                            className={`px-2 py-1 rounded-lg transition cursor-pointer text-xs flex items-center gap-1 font-medium ${
+                              copiedSummary
+                                ? "text-emerald-700 bg-emerald-50 border border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-500/40"
+                                : isLight
+                                ? "text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
+                                : isSepia
+                                ? "text-[#5c3c1e] bg-[#ebdec9] hover:bg-[#dfcfba] border border-[#d6c2a5]"
+                                : "text-indigo-300 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30"
+                            }`}
+                            title="一键复制 AI 提炼文案，便于直接粘贴分享给微信/社交好友"
+                          >
+                            {copiedSummary ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                            <span>{copiedSummary ? "已复制" : "复制总结"}</span>
+                          </button>
+
                           <button
                             onClick={() => handleGenerateSummary(true)}
                             disabled={loadingSummary || summaryCooldown > 0}
@@ -1600,6 +1664,40 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                               ))}
                             </div>
                           )}
+
+                          {/* Quick Share Action at bottom of summary */}
+                          <div
+                            className={`no-print pt-3 border-t flex flex-wrap items-center justify-between gap-2 text-xs ${
+                              isLight
+                                ? "border-slate-200/80 text-slate-600"
+                                : isSepia
+                                ? "border-[#dfcfba] text-[#6e5033]"
+                                : "border-white/10 text-slate-400"
+                            }`}
+                          >
+                            <span className="text-[11px] opacity-80">
+                              💡 觉得总结有用？可复制整段提炼文案直接粘贴发给微信或社交好友
+                            </span>
+                            <button
+                              onClick={handleCopySummary}
+                              className={`px-3 py-1.5 rounded-lg transition cursor-pointer text-xs flex items-center gap-1.5 font-medium shadow-xs ${
+                                copiedSummary
+                                  ? "text-emerald-700 bg-emerald-50 border border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-500/40"
+                                  : isLight
+                                  ? "text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
+                                  : isSepia
+                                  ? "text-[#5c3c1e] bg-[#ebdec9] hover:bg-[#dfcfba] border border-[#d6c2a5]"
+                                  : "text-indigo-300 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30"
+                              }`}
+                            >
+                              {copiedSummary ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                              <span>{copiedSummary ? "已复制到剪贴板！" : "复制 AI 总结文案"}</span>
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
