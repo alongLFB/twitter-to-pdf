@@ -186,13 +186,42 @@ export default function Home() {
     }
   };
 
-  // Reset and Return back to input box
+  // Reset and Return back to input box cleanly without occluding hero title
   const handleBackToInput = () => {
+    // 1. Immediately reset scroll position to the absolute top
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    if (typeof document !== "undefined") {
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+
+    // 2. Clear parsed tweet data to return to input view
     setTweetData(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 200);
+
+    // 3. Ensure after React unmounts the article DOM that the viewport stays firmly at top: 0
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      if (typeof document !== "undefined") {
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
+
+      setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+        if (typeof document !== "undefined") {
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+        }
+
+        // CRITICAL: preventScroll: true prevents the browser from auto-scrolling
+        // down to the input, which was causing the hero title above it to slide
+        // behind the sticky header!
+        if (inputRef.current) {
+          inputRef.current.focus({ preventScroll: true });
+          inputRef.current.select();
+        }
+      }, 50);
+    });
   };
 
   // Scroll to top
@@ -592,13 +621,17 @@ ${tweetData.text}
       {/* Header Bar */}
       <header className="no-print border-b border-white/10 bg-[#030712]/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-sky-500 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+          <div
+            onClick={handleBackToInput}
+            className="flex items-center gap-3 cursor-pointer group"
+            title="返回首页重新输入"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-sky-500 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
               <FileText className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg text-white tracking-tight">X to PDF</span>
+                <span className="font-bold text-lg text-white tracking-tight group-hover:text-indigo-200 transition-colors">X to PDF</span>
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-medium border border-indigo-500/30">
                   Article & Tweet
                 </span>
@@ -631,9 +664,9 @@ ${tweetData.text}
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:py-10 z-10">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-8 pb-12 sm:pt-12 sm:pb-16 z-10">
         {/* Hero Section */}
-        <div className="no-print text-center mb-8 space-y-3">
+        <div id="hero-section" className="no-print text-center mb-8 space-y-3.5 scroll-mt-28">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-slate-300 text-xs font-medium backdrop-blur-sm shadow-inner">
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
             <span>支持 Twitter Article / Note Tweet / 深度长篇多图推文</span>
