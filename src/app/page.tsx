@@ -193,19 +193,20 @@ export default function Home() {
     if (typeof document !== "undefined") {
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
+      document.getElementById("page-top")?.scrollIntoView({ behavior: "instant", block: "start" });
     }
 
-    // 2. Clear parsed tweet data to return to input view
+    // 2. Clear parsed tweet data and error to return to clean input view
     setTweetData(null);
+    setError("");
 
     // 3. Ensure after React unmounts the article DOM that the viewport stays firmly anchored at top: 0
-    // Note: Do NOT call input.select() or input.focus() here, because browser selection engines
-    // will forcefully scroll the input into view (~60px down), pushing the badge behind the header!
     requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       if (typeof document !== "undefined") {
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
+        document.getElementById("page-top")?.scrollIntoView({ behavior: "instant", block: "start" });
       }
     });
 
@@ -214,8 +215,9 @@ export default function Home() {
       if (typeof document !== "undefined") {
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
+        document.getElementById("page-top")?.scrollIntoView({ behavior: "instant", block: "start" });
       }
-    }, 60);
+    }, 50);
 
     setTimeout(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -223,7 +225,7 @@ export default function Home() {
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
       }
-    }, 150);
+    }, 120);
   };
 
   // Scroll to top
@@ -561,11 +563,13 @@ ${tweetData.text}
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden">
-      {/* Background glowing gradients */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-600/15 blur-[120px] pointer-events-none animate-pulse-glow" />
-      <div className="absolute top-[20%] right-[-5%] w-[450px] h-[450px] rounded-full bg-sky-600/15 blur-[120px] pointer-events-none animate-pulse-glow" />
-      <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] rounded-full bg-purple-600/10 blur-[140px] pointer-events-none" />
+    <div className="min-h-screen flex flex-col justify-between relative">
+      {/* Background glowing gradients (isolated clipping to prevent root scroll interception) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-600/15 blur-[120px] animate-pulse-glow" />
+        <div className="absolute top-[20%] right-[-5%] w-[450px] h-[450px] rounded-full bg-sky-600/15 blur-[120px] animate-pulse-glow" />
+        <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] rounded-full bg-purple-600/10 blur-[140px]" />
+      </div>
 
       {/* Floating Toast Notification */}
       {copiedNotification && (
@@ -621,7 +625,7 @@ ${tweetData.text}
       )}
 
       {/* Header Bar */}
-      <header className="no-print border-b border-white/10 bg-[#030712]/80 backdrop-blur-md sticky top-0 z-40">
+      <header id="page-top" className="no-print border-b border-white/10 bg-[#030712]/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div
             onClick={handleBackToInput}
@@ -666,7 +670,7 @@ ${tweetData.text}
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-8 pb-12 sm:pt-12 sm:pb-16 z-10">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-6 pb-6 sm:pt-7 sm:pb-8 z-10">
         {/* Hero Section */}
         <div id="hero-section" className="no-print text-center mb-8 space-y-3.5 scroll-mt-28">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-slate-300 text-xs font-medium backdrop-blur-sm shadow-inner">
@@ -1276,10 +1280,10 @@ ${tweetData.text}
           </div>
         )}
 
-        {/* Recent History Section */}
-        {history.length > 0 && (
-          <div className="no-print mt-8 glass-panel p-5 rounded-2xl border border-white/10">
-            <div className="flex items-center justify-between mb-4">
+        {/* Recent History Section - Only shown on landing page to keep article reading clean */}
+        {!tweetData && history.length > 0 && (
+          <div className="no-print mt-6 glass-panel p-4 sm:p-5 rounded-2xl border border-white/10">
+            <div className="flex items-center justify-between mb-3">
               <div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-indigo-400" />
@@ -1329,10 +1333,10 @@ ${tweetData.text}
 
         {/* Feature Highlights Grid - Only shown on initial landing to keep article reading clean */}
         {!tweetData && (
-          <div className="no-print mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 text-slate-300">
-            <div className="glass-card p-5 rounded-xl border border-white/5">
-              <div className="w-9 h-9 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center mb-3">
-                <BookOpen className="w-5 h-5" />
+          <div className="no-print mt-6 sm:mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-slate-300">
+            <div className="glass-card p-4 sm:p-5 rounded-xl border border-white/5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center mb-2.5">
+                <BookOpen className="w-4 h-4" />
               </div>
               <h4 className="font-semibold text-white text-sm mb-1">原生支持 Twitter Article</h4>
               <p className="text-xs text-slate-400 leading-relaxed">
@@ -1340,9 +1344,9 @@ ${tweetData.text}
               </p>
             </div>
 
-            <div className="glass-card p-5 rounded-xl border border-white/5">
-              <div className="w-9 h-9 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center mb-3">
-                <Printer className="w-5 h-5" />
+            <div className="glass-card p-4 sm:p-5 rounded-xl border border-white/5">
+              <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center mb-2.5">
+                <Printer className="w-4 h-4" />
               </div>
               <h4 className="font-semibold text-white text-sm mb-1">双模 PDF 极速导出</h4>
               <p className="text-xs text-slate-400 leading-relaxed">
@@ -1350,9 +1354,9 @@ ${tweetData.text}
               </p>
             </div>
 
-            <div className="glass-card p-5 rounded-xl border border-white/5">
-              <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3">
-                <FileCode className="w-5 h-5" />
+            <div className="glass-card p-4 sm:p-5 rounded-xl border border-white/5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2.5">
+                <FileCode className="w-4 h-4" />
               </div>
               <h4 className="font-semibold text-white text-sm mb-1">Markdown 与笔记联动</h4>
               <p className="text-xs text-slate-400 leading-relaxed">
@@ -1364,7 +1368,7 @@ ${tweetData.text}
       </main>
 
       {/* Footer */}
-      <footer className="no-print border-t border-white/10 py-4 text-center text-xs text-slate-500">
+      <footer className="no-print border-t border-white/10 py-3 text-center text-[11px] text-slate-500">
         <p>© 2026 X to PDF Converter · 专注深度阅读与优质长文归档</p>
       </footer>
     </div>
