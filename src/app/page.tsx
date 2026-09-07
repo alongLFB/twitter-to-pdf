@@ -75,7 +75,7 @@ export default function Home() {
   // PDF & Reading Preferences
   const [fontSize, setFontSize] = useState<"sm" | "base" | "lg">("base");
   const [fontFamily, setFontFamily] = useState<"sans" | "serif">("sans");
-  const [readerTheme, setReaderTheme] = useState<"dark" | "light" | "sepia">("light");
+  const [readerTheme, setReaderTheme] = useState<"dark" | "light" | "sepia">("dark");
   const [showCover, setShowCover] = useState(true);
   const [showStats, setShowStats] = useState(true);
   const [pageSize, setPageSize] = useState<"a4" | "letter">("a4");
@@ -1149,7 +1149,7 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
 
       {/* Sticky Bottom Floating Bar (Appears when reading long articles) */}
       {showFloatingBar && tweetData && (
-        <aside aria-label="快捷导出浮动栏" className="no-print fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 bg-slate-900/95 text-white rounded-2xl shadow-2xl border border-indigo-500/30 backdrop-blur-lg animate-fade-in max-w-[92vw]">
+        <aside aria-label="快捷导出浮动栏" className="no-print fixed bottom-8 sm:bottom-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 bg-slate-900/95 text-white rounded-2xl shadow-2xl border border-indigo-500/30 backdrop-blur-lg animate-fade-in max-w-[92vw]">
           <div className="hidden md:flex items-center gap-2 pr-2 border-r border-slate-700 text-xs text-slate-300 max-w-[200px] truncate">
             <span className="font-semibold text-indigo-300 truncate">{tweetData.title}</span>
           </div>
@@ -1227,15 +1227,14 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
               </button>
             )}
 
-            <a
-              href="https://github.com/alongLFB/media-downloader"
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 border border-white/10 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            <button
+              onClick={() => setSponsorOpen(true)}
+              className="text-xs text-amber-300 hover:text-amber-200 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer shadow-xs"
+              title="觉得工具好用？赞赏请作者喝杯咖啡"
             >
-              <span>参考项目</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
+              <Heart className="w-3.5 h-3.5 fill-amber-400/30 text-amber-400" />
+              <span>打赏作者</span>
+            </button>
           </div>
         </div>
       </header>
@@ -2303,76 +2302,123 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
               </div>
 
               {/* Bottom Actions Card inside Document */}
-              <div className="no-print mt-10 pt-6 border-t border-black/10 dark:border-white/10 flex flex-wrap items-center justify-between gap-4 bg-black/5 dark:bg-white/5 p-5 rounded-2xl">
-                <div>
-                  <h3
-                    className={`font-bold text-base mb-1 ${
-                      readerTheme === "light"
-                        ? "text-slate-900"
-                        : readerTheme === "sepia"
-                        ? "text-[#433220]"
-                        : "text-slate-100"
+              {(() => {
+                const isLight = readerTheme === "light";
+                const isSepia = readerTheme === "sepia";
+
+                return (
+                  <div
+                    className={`no-print mt-10 p-5 sm:p-6 rounded-2xl transition-colors border flex flex-wrap items-center justify-between gap-4 ${
+                      isLight
+                        ? "bg-slate-100/70 border-slate-200/90 shadow-xs"
+                        : isSepia
+                        ? "bg-[#ede2ce] border-[#dccaa7] shadow-xs"
+                        : "bg-white/5 border-white/10"
                     }`}
                   >
-                    🎉 文章阅读完毕
-                  </h3>
-                  <p
-                    className={`text-xs ${
-                      readerTheme === "light"
-                        ? "text-slate-600"
-                        : readerTheme === "sepia"
-                        ? "text-[#6b5840]"
-                        : "text-slate-400"
-                    }`}
-                  >
-                    已提取全部段落与排版，您可以随时导出保存：
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setSponsorOpen(true)}
-                    className="px-3.5 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 rounded-xl text-xs sm:text-sm font-medium border border-rose-500/30 flex items-center gap-1.5 transition cursor-pointer shadow-xs"
-                    title="觉得工具好用？赞赏请作者喝杯咖啡"
-                  >
-                    <Heart className="w-4 h-4 text-rose-400 fill-rose-500/30" />
-                    <span>打赏支持</span>
-                  </button>
-                  <button
-                    onClick={handleCopyShareUrl}
-                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs sm:text-sm font-medium border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
-                    title="复制本文专属在线分享链接发给好友"
-                  >
-                    {copiedShareUrl ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <Share2 className="w-4 h-4 text-sky-400" />
-                    )}
-                    <span>{copiedShareUrl ? "链接已复制" : "分享本文"}</span>
-                  </button>
-                  <button
-                    onClick={handleDownloadPdf}
-                    disabled={generatingPdf}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md flex items-center gap-1.5 transition cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>{generatingPdf ? downloadProgress || "导出中..." : "下载 PDF 文件"}</span>
-                  </button>
-                  <button
-                    onClick={handlePrint}
-                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs sm:text-sm font-medium border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
-                  >
-                    <Printer className="w-4 h-4 text-sky-400" />
-                    <span>另存为高精 PDF</span>
-                  </button>
-                  <button
-                    onClick={handleBackToInput}
-                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs sm:text-sm font-medium border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
-                  >
-                    <ArrowUp className="w-4 h-4 text-indigo-400" />
-                    <span>返回顶部</span>
-                  </button>
-                </div>
-              </div>
+                    <div>
+                      <h3
+                        className={`font-bold text-base mb-1 ${
+                          isLight
+                            ? "text-slate-900"
+                            : isSepia
+                            ? "text-[#3b2716]"
+                            : "text-slate-100"
+                        }`}
+                      >
+                        🎉 文章阅读完毕
+                      </h3>
+                      <p
+                        className={`text-xs ${
+                          isLight
+                            ? "text-slate-600"
+                            : isSepia
+                            ? "text-[#6b5840]"
+                            : "text-slate-400"
+                        }`}
+                      >
+                        已提取全部段落与排版，您可以随时导出保存：
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => setSponsorOpen(true)}
+                        className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium border flex items-center gap-1.5 transition cursor-pointer shadow-xs ${
+                          isLight
+                            ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200"
+                            : isSepia
+                            ? "bg-[#f8ede0] hover:bg-[#f0dfcc] text-[#933722] border-[#d8be9f]"
+                            : "bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border-rose-500/30"
+                        }`}
+                        title="觉得工具好用？赞赏请作者喝杯咖啡"
+                      >
+                        <Heart
+                          className={`w-4 h-4 ${
+                            isLight
+                              ? "text-rose-600 fill-rose-500/20"
+                              : isSepia
+                              ? "text-[#a83b24] fill-[#a83b24]/20"
+                              : "text-rose-400 fill-rose-500/30"
+                          }`}
+                        />
+                        <span>打赏支持</span>
+                      </button>
+                      <button
+                        onClick={handleCopyShareUrl}
+                        className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium border flex items-center gap-1.5 transition cursor-pointer ${
+                          isLight
+                            ? "bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-xs"
+                            : isSepia
+                            ? "bg-[#fbf4ea] hover:bg-[#f0dfcc] text-[#4a3b2c] border-[#d9caa7] shadow-xs"
+                            : "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
+                        }`}
+                        title="复制本文专属在线分享链接发给好友"
+                      >
+                        {copiedShareUrl ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+                        ) : (
+                          <Share2 className="w-4 h-4 text-sky-500 dark:text-sky-400" />
+                        )}
+                        <span>{copiedShareUrl ? "链接已复制" : "分享本文"}</span>
+                      </button>
+                      <button
+                        onClick={handleDownloadPdf}
+                        disabled={generatingPdf}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>{generatingPdf ? downloadProgress || "导出中..." : "下载 PDF 文件"}</span>
+                      </button>
+                      <button
+                        onClick={handlePrint}
+                        className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium border flex items-center gap-1.5 transition cursor-pointer ${
+                          isLight
+                            ? "bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-xs"
+                            : isSepia
+                            ? "bg-[#fbf4ea] hover:bg-[#f0dfcc] text-[#4a3b2c] border-[#d9caa7] shadow-xs"
+                            : "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
+                        }`}
+                      >
+                        <Printer className="w-4 h-4 text-sky-500 dark:text-sky-400" />
+                        <span>另存为高精 PDF</span>
+                      </button>
+                      <button
+                        onClick={handleBackToInput}
+                        className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border flex items-center gap-1.5 transition cursor-pointer ${
+                          isLight
+                            ? "bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-xs"
+                            : isSepia
+                            ? "bg-[#fbf4ea] hover:bg-[#f0dfcc] text-[#4a3b2c] border-[#d9caa7] shadow-xs"
+                            : "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
+                        }`}
+                      >
+                        <ArrowUp className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                        <span>返回顶部</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Document Print Footer */}
               <div className="mt-8 pt-6 border-t border-black/10 dark:border-white/10 text-xs opacity-60 flex flex-wrap items-center justify-between gap-2 print-avoid-break">
@@ -2485,16 +2531,12 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
       </main>
 
       {/* Footer */}
-      <footer className="no-print border-t border-white/10 py-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+      <footer
+        className={`no-print border-t border-white/10 text-center text-xs text-slate-500 flex items-center justify-center transition-all ${
+          tweetData ? "pt-6 pb-28 sm:pb-32" : "py-6"
+        }`}
+      >
         <p>© 2026 X to PDF Converter · 专注深度阅读与优质长文归档</p>
-        <span className="hidden sm:inline opacity-30">|</span>
-        <button
-          onClick={() => setSponsorOpen(true)}
-          className="text-rose-400/85 hover:text-rose-300 hover:underline flex items-center gap-1 transition cursor-pointer"
-        >
-          <Heart className="w-3.5 h-3.5 fill-rose-500/30" />
-          <span>请作者喝杯咖啡 (微信/支付宝)</span>
-        </button>
       </footer>
 
       {/* Sponsor Modal */}
