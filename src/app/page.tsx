@@ -34,6 +34,7 @@ import {
   Tag,
   ChevronDown,
   ChevronUp,
+  Share2,
 } from "lucide-react";
 import { ParsedTweet, ParseResponse, ArticleSummary, SummarizeResponse } from "@/types/tweet";
 import { SponsorModal } from "@/components/SponsorModal";
@@ -91,6 +92,7 @@ export default function Home() {
   const [includeSummaryInPdf, setIncludeSummaryInPdf] = useState(true);
   const [summaryCooldown, setSummaryCooldown] = useState(0);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [copiedShareUrl, setCopiedShareUrl] = useState(false);
 
   // Sponsor Modal state
   const [sponsorOpen, setSponsorOpen] = useState(false);
@@ -252,9 +254,12 @@ export default function Home() {
   };
 
   const handleCopySummary = () => {
-    if (!summary) return;
+    if (!summary || !tweetData) return;
 
-    let text = `📝 【AI 速读提炼】${tweetData?.title || "Twitter 长文精读"}\n\n`;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://x2pdf.alonglfb.com";
+    const shareUrl = `${origin}/?url=${encodeURI(tweetData.url)}`;
+
+    let text = `📝 【AI 速读提炼】${tweetData.title || "Twitter 长文精读"}\n\n`;
     text += `💡 核心总结：\n${summary.oneSentence}\n\n`;
 
     if (summary.keyTakeaways && summary.keyTakeaways.length > 0) {
@@ -273,19 +278,34 @@ export default function Home() {
       text += `🏷️ 关键词：${summary.tags.map((t) => `#${t}`).join(" ")}\n\n`;
     }
 
-    if (tweetData?.url) {
-      text += `🔗 原文链接：${tweetData.url}\n`;
-    }
+    text += `📖 在线阅读与导出：${shareUrl}\n`;
+    text += `🔗 推特原文链接：${tweetData.url}\n`;
     text += `— 由 X to PDF 智能提炼导出`;
 
     try {
       navigator.clipboard.writeText(text).then(() => {
         setCopiedSummary(true);
-        showToast("📋 AI 总结文案已复制，可直接粘贴分享给好友！");
+        showToast("📋 AI 总结与专属阅读链接已复制，快去分享给好友吧！");
         setTimeout(() => setCopiedSummary(false), 2500);
       });
     } catch {
       showToast("复制失败，请手动选取文本复制");
+    }
+  };
+
+  const handleCopyShareUrl = () => {
+    if (!tweetData) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://x2pdf.alonglfb.com";
+    const shareUrl = `${origin}/?url=${encodeURI(tweetData.url)}`;
+
+    try {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setCopiedShareUrl(true);
+        showToast("🔗 专属在线阅读链接已复制！好友打开即可直接查看");
+        setTimeout(() => setCopiedShareUrl(false), 2500);
+      });
+    } catch {
+      showToast("复制失败，请手动复制浏览器地址栏");
     }
   };
 
@@ -309,6 +329,13 @@ export default function Home() {
         saveToHistory(res.data.data);
         // Real-time update conversions stat counter
         setStats((prev) => (prev ? { ...prev, conversions: prev.conversions + 1 } : null));
+
+        // Sync browser address bar with ?url= so users can copy and share directly
+        if (typeof window !== "undefined") {
+          const sharePath = `/?url=${encodeURI(res.data.data.url)}`;
+          window.history.pushState({ url: res.data.data.url }, "", sharePath);
+        }
+
         // Scroll to toolbar so user immediately sees the download action buttons and settings
         setTimeout(() => {
           toolbarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -359,7 +386,12 @@ export default function Home() {
     setSummaryError(null);
     setLoadingSummary(false);
 
-    // 3. Ensure after React unmounts the article DOM that the viewport stays firmly anchored at top: 0
+    // 3. Clear URL query parameter in address bar
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", window.location.pathname);
+    }
+
+    // 4. Ensure after React unmounts the article DOM that the viewport stays firmly anchored at top: 0
     requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       if (typeof document !== "undefined") {
@@ -386,6 +418,37 @@ export default function Home() {
       }
     }, 120);
   };
+
+  // Auto-parse on direct URL parameter link (?url=...) and handle browser Back/Forward
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const parseFromUrl = () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlParam = searchParams.get("url");
+      if (urlParam) {
+        const decoded = decodeURIComponent(urlParam);
+        setUrl(decoded);
+        handleParse(decoded);
+      } else {
+        setTweetData(null);
+        setError("");
+        setSummary(null);
+      }
+    };
+
+    // Check on initial mount
+    const searchParams = new URLSearchParams(window.location.search);
+    const initialUrl = searchParams.get("url");
+    if (initialUrl) {
+      const decoded = decodeURIComponent(initialUrl);
+      setUrl(decoded);
+      handleParse(decoded);
+    }
+
+    window.addEventListener("popstate", parseFromUrl);
+    return () => window.removeEventListener("popstate", parseFromUrl);
+  }, []);
 
   // Scroll to top
   const handleScrollToTop = () => {
@@ -729,11 +792,14 @@ export default function Home() {
   // 3. Export Markdown
   const handleExportMarkdown = () => {
     if (!tweetData) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://x2pdf.alonglfb.com";
+    const shareUrl = `${origin}/?url=${encodeURI(tweetData.url)}`;
     const frontmatter = `---
 title: "${tweetData.title.replace(/"/g, '\\"')}"
 author: "${tweetData.author.name} (@${tweetData.author.screen_name})"
 date: "${tweetData.createdAt}"
 source: "${tweetData.url}"
+readerUrl: "${shareUrl}"
 word_count: ${tweetData.wordCount}
 reading_time: "${tweetData.readingTime} min"
 ---
@@ -741,7 +807,8 @@ reading_time: "${tweetData.readingTime} min"
 # ${tweetData.title}
 
 > **作者**：${tweetData.author.name} (@${tweetData.author.screen_name})  
-> **原文**：${tweetData.url}  
+> **在线阅读与导出**：${shareUrl}  
+> **推特原文**：${tweetData.url}  
 > **发布日期**：${new Date(tweetData.createdAt).toLocaleString("zh-CN")}
 
 ${includeSummaryInPdf && summary ? `> [!NOTE]
@@ -772,10 +839,12 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
   // 4. Copy Text
   const handleCopyText = async () => {
     if (!tweetData) return;
-    const content = `${tweetData.title}\n作者：${tweetData.author.name} (@${tweetData.author.screen_name})\n原文：${tweetData.url}\n\n${tweetData.text}`;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://x2pdf.alonglfb.com";
+    const shareUrl = `${origin}/?url=${encodeURI(tweetData.url)}`;
+    const content = `${tweetData.title}\n作者：${tweetData.author.name} (@${tweetData.author.screen_name})\n在线阅读：${shareUrl}\n原文：${tweetData.url}\n\n${tweetData.text}`;
     try {
       await navigator.clipboard.writeText(content);
-      showToast("全文内容已复制到剪贴板！");
+      showToast("全文内容与在线阅读链接已复制到剪贴板！");
     } catch {
       alert("复制失败，请手动选择复制。");
     }
@@ -1121,6 +1190,20 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                   >
                     <Copy className="w-4 h-4 text-amber-400" />
                     <span>复制全文</span>
+                  </button>
+
+                  {/* Copy Share Link */}
+                  <button
+                    onClick={handleCopyShareUrl}
+                    className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs sm:text-sm font-medium border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
+                    title="复制本文专属在线阅读链接（好友打开即直接查看排版全文）"
+                  >
+                    {copiedShareUrl ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Share2 className="w-4 h-4 text-sky-400" />
+                    )}
+                    <span>{copiedShareUrl ? "链接已复制" : "分享链接"}</span>
                   </button>
 
                   {/* AI Summary Quick Trigger / Scroll Button */}
@@ -1938,6 +2021,18 @@ ${summary.goldenQuote ? `>\n> **💬 金句摘录**：_${summary.goldenQuote}_` 
                   >
                     <Heart className="w-4 h-4 text-rose-400 fill-rose-500/30" />
                     <span>打赏支持</span>
+                  </button>
+                  <button
+                    onClick={handleCopyShareUrl}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs sm:text-sm font-medium border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
+                    title="复制本文专属在线分享链接发给好友"
+                  >
+                    {copiedShareUrl ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Share2 className="w-4 h-4 text-sky-400" />
+                    )}
+                    <span>{copiedShareUrl ? "链接已复制" : "分享本文"}</span>
                   </button>
                   <button
                     onClick={handleDownloadPdf}
